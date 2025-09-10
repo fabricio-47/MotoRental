@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Motos</h2>
+<form method="post">
+  <input name="placa" placeholder="Placa" required>
+  <input name="modelo" placeholder="Modelo" required>
+  <input name="ano" type="number" placeholder="Ano" required>
+  <button class="btn btn-success">Adicionar</button>
+</form>
+<hr>
+<ul>
+  {% for m in motos %}
+    <li>{{ m.placa }} - {{ m.modelo }} ({{ m.ano }})</li>
+  {% endfor %}
+</ul>
+{% endblock %}

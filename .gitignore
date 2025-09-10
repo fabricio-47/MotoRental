@@ -1,0 +1,36 @@
+# Ambiente virtual (não versionar nunca)
+venv/
+ENV/
+env/
+
+# Cache e compilados Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# Banco de dados local (você recria com flask init-db)
+banco.sqlite
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# Configurações de IDE
+.vscode/
+.idea/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Credenciais/segredos
+.env
+.env.*

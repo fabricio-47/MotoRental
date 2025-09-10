@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}MotoRental{% endblock %}</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('dashboard') }}">MotoRental</a>
+    <ul class="navbar-nav flex-row">
+      {% if session.user_id %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('motos') }}">Motos</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('clientes') }}">Clientes</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('locacoes') }}">Locações</a></li>
+        <li class="nav-item ms-3"><a class="btn btn-danger btn-sm" href="{{ url_for('logout') }}">Sair</a></li>
+      {% endif %}
+    </ul>
+  </div>
+</nav>
+<div class="container mt-4">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c, m in messages %}<div class="alert alert-warning">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

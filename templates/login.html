@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h3>Entrar</h3>
+    <form method="post">
+      <input type="email" name="email" class="form-control mb-2" placeholder="Email" required>
+      <input type="password" name="senha" class="form-control mb-2" placeholder="Senha" required>
+      <button class="btn btn-primary w-100">Entrar</button>
+    </form>
+    <small>Usuário inicial será criado no DB manualmente.</small>
+  </div>
+</div>
+{% endblock %}

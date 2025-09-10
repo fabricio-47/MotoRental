@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Locações</h2>
+<form method="post">
+  <select name="cliente_id" required>
+    <option value="">Cliente...</option>
+    {% for c in clientes %}<option value="{{ c.id }}">{{ c.nome }}</option>{% endfor %}
+  </select>
+  <select name="moto_id" required>
+    <option value="">Moto...</option>
+    {% for m in motos %}<option value="{{ m.id }}">{{ m.modelo }}</option>{% endfor %}
+  </select>
+  <input type="date" name="data_inicio" required>
+  <button class="btn btn-success">Nova Locação</button>
+</form>
+<hr>
+<ul>
+  {% for l in locacoes %}
+    <li>{{ l.nome }} alugou {{ l.modelo }} em {{ l.data_inicio }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Dashboard</h1>
+<ul>
+  <li>Motos: {{ stats.total_motos }}</li>
+  <li>Clientes: {{ stats.total_clientes }}</li>
+  <li>Locações ativas: {{ stats.locacoes_ativas }}</li>
+</ul>
+{% endblock %}
