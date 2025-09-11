@@ -1,35 +1,33 @@
-DROP TABLE IF EXISTS usuarios;
-DROP TABLE IF EXISTS motos;
-DROP TABLE IF EXISTS clientes;
-DROP TABLE IF EXISTS locacoes;
+DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS motos CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
+DROP TABLE IF EXISTS locacoes CASCADE;
 
 CREATE TABLE usuarios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     senha TEXT NOT NULL
 );
 
 CREATE TABLE motos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     placa TEXT NOT NULL,
     modelo TEXT NOT NULL,
     ano INTEGER NOT NULL,
-    disponivel BOOLEAN DEFAULT 1
+    disponivel BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE clientes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     nome TEXT NOT NULL,
     email TEXT,
     telefone TEXT
 );
 
 CREATE TABLE locacoes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente_id INTEGER NOT NULL,
-    moto_id INTEGER NOT NULL,
-    data_inicio TEXT NOT NULL,
-    data_fim TEXT,
-    FOREIGN KEY (cliente_id) REFERENCES clientes (id),
-    FOREIGN KEY (moto_id) REFERENCES motos (id)
+    id SERIAL PRIMARY KEY,
+    cliente_id INTEGER NOT NULL REFERENCES clientes (id) ON DELETE CASCADE,
+    moto_id INTEGER NOT NULL REFERENCES motos (id) ON DELETE CASCADE,
+    data_inicio DATE NOT NULL,
+    data_fim DATE
 );
