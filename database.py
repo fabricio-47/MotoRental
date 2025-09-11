@@ -14,19 +14,22 @@ def get_db():
     if "db" not in g:
         database_url = current_app.config.get("DATABASE_URL")
 
-        # Se DATABASE_URL estiver definida (Render/Postgres)
-        if database_url and database_url.startswith("postgres://"):
+        if database_url:
+            # Render pode devolver "postgres://", mas psycopg2 >= 2.9 prefere "postgresql://"
+            if database_url.startswith("postgres://"):
+                database_url = database_url.replace("postgres://", "postgresql://", 1)
+
             g.db = psycopg2.connect(
                 database_url,
-                cursor_factory=psycopg2.extras.RealDictCursor  # retorna dicts
+                cursor_factory=psycopg2.extras.RealDictCursor
             )
         else:
-            # fallback para SQLite local
+            # fallback SQLite local
             g.db = sqlite3.connect(
                 current_app.config.get("DATABASE", "banco.sqlite"),
                 detect_types=sqlite3.PARSE_DECLTYPES
             )
-            g.db.row_factory = sqlite3.Row  # retorna dicts igual Postgres
+            g.db.row_factory = sqlite3.Row
 
     return g.db
 
