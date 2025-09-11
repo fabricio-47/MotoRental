@@ -3,11 +3,11 @@ import os
 import click
 from flask import current_app, g
 
-# para Postgres
+# Postgres
 import psycopg2
 import psycopg2.extras
 
-# para SQLite local
+# SQLite (fallback p/ rodar local)
 import sqlite3
 
 def get_db():
@@ -15,21 +15,21 @@ def get_db():
         database_url = current_app.config.get("DATABASE_URL")
 
         if database_url:
-            # Render pode devolver "postgres://", mas psycopg2 >= 2.9 prefere "postgresql://"
+            # Render às vezes fornece postgres://, mas psycopg2 quer postgresql://
             if database_url.startswith("postgres://"):
                 database_url = database_url.replace("postgres://", "postgresql://", 1)
 
             g.db = psycopg2.connect(
                 database_url,
-                cursor_factory=psycopg2.extras.RealDictCursor
+                cursor_factory=psycopg2.extras.RealDictCursor  # -> rows como dict
             )
         else:
-            # fallback SQLite local
+            # fallback para SQLite local
             g.db = sqlite3.connect(
                 current_app.config.get("DATABASE", "banco.sqlite"),
                 detect_types=sqlite3.PARSE_DECLTYPES
             )
-            g.db.row_factory = sqlite3.Row
+            g.db.row_factory = sqlite3.Row  # retorna dict
 
     return g.db
 
@@ -43,10 +43,8 @@ def close_db(e=None):
 def init_db():
     db = get_db()
     cur = db.cursor()
-
     with current_app.open_resource("schema.sql") as f:
         cur.execute(f.read().decode("utf8"))
-
     db.commit()
     cur.close()
 
@@ -56,6 +54,6 @@ def init_app(app):
 
     @app.cli.command("init-db")
     def init_db_command():
-        """Inicializa o banco (SQLite local ou Postgres no Render)."""
+        """Inicializa as tabelas no banco (Postgres ou SQLite)."""
         init_db()
-        click.echo("Banco de dados inicializado!")
+        click.echo("Banco de dados inicializado com sucesso!")

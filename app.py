@@ -4,12 +4,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_app
 
 app = Flask(__name__)
+
+# Configurações
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
+app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL")  # Postgres no Render
 
-# URL do Postgres via variável de ambiente
-app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL")
-
-# inicializa funções de db
+# Inicializa funções de banco
 init_app(app)
 
 
@@ -30,13 +30,17 @@ def login():
     if request.method == "POST":
         email = request.form["email"]
         senha = request.form["senha"]
+
+        # Query explícita com apenas as colunas necessárias
         cur.execute("SELECT id, email, senha FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
-        if user and check_password_hash(user[2], senha):
-            session["user_id"] = user[0]
+
+        if user and check_password_hash(user["senha"], senha):
+            session["user_id"] = user["id"]
             return redirect(url_for("dashboard"))
         else:
             flash("E-mail ou senha inválidos", "error")
+
     cur.close()
     return render_template("login.html")
 
@@ -52,19 +56,26 @@ def logout():
 def dashboard():
     if "user_id" not in session:
         return redirect(url_for("login"))
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM motos")
-    total_motos = cur.fetchone()[0]
 
-    cur.execute("SELECT COUNT(*) FROM clientes")
-    total_clientes = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as total FROM motos")
+    total_motos = cur.fetchone()["total"]
 
-    cur.execute("SELECT COUNT(*) FROM locacoes WHERE data_fim IS NULL")
-    locacoes_ativas = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as total FROM clientes")
+    total_clientes = cur.fetchone()["total"]
+
+    cur.execute("SELECT COUNT(*) as total FROM locacoes WHERE data_fim IS NULL")
+    locacoes_ativas = cur.fetchone()["total"]
 
     cur.close()
-    stats = {"total_motos": total_motos, "total_clientes": total_clientes, "locacoes_ativas": locacoes_ativas}
+
+    stats = {
+        "total_motos": total_motos,
+        "total_clientes": total_clientes,
+        "locacoes_ativas": locacoes_ativas
+    }
     return render_template("dashboard.html", stats=stats)
 
 
@@ -82,7 +93,7 @@ def motos():
         conn.commit()
         return redirect(url_for("motos"))
 
-    cur.execute("SELECT id, placa, modelo, ano, disponivel FROM motos")
+    cur.execute("SELECT * FROM motos")
     motos = cur.fetchall()
     cur.close()
     return render_template("motos.html", motos=motos)
@@ -102,7 +113,7 @@ def clientes():
         conn.commit()
         return redirect(url_for("clientes"))
 
-    cur.execute("SELECT id, nome, email, telefone FROM clientes")
+    cur.execute("SELECT * FROM clientes")
     clientes = cur.fetchall()
     cur.close()
     return render_template("clientes.html", clientes=clientes)
@@ -117,8 +128,11 @@ def locacoes():
         cliente_id = request.form["cliente_id"]
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
+
+        # cria locação
         cur.execute("INSERT INTO locacoes (cliente_id, moto_id, data_inicio) VALUES (%s,%s,%s)",
                     (cliente_id, moto_id, data_inicio))
+        # marca moto como não disponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
         return redirect(url_for("locacoes"))
@@ -139,5 +153,6 @@ def locacoes():
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
 
+# Rodar localmente
 if __name__ == "__main__":
     app.run(debug=True)
