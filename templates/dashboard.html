@@ -1,55 +1,5 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2 class="mb-4">Dashboard</h2>
-
-<div class="row g-4 mb-4">
-  <div class="col-md-3">
-    <div class="card text-white bg-primary shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Clientes</h5>
-        <p class="card-text display-6">123</p>
-      </div>
-      <div class="card-footer text-center">
-        <a href="{{ url_for('clientes') }}" class="btn btn-light btn-sm">Ver Clientes</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-3">
-    <div class="card text-white bg-success shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Motos</h5>
-        <p class="card-text display-6">{{ total_motos }}</p>
-      </div>
-      <div class="card-footer text-center">
-        <a href="{{ url_for('motos') }}" class="btn btn-light btn-sm">Ver Motos</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-3">
-    <div class="card text-dark bg-warning shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Locações Ativas</h5>
-        <p class="card-text display-6">{{ locacoes_ativas }}</p>
-      </div>
-      <div class="card-footer text-center">
-        <a href="{{ url_for('locacoes') }}" class="btn btn-dark btn-sm">Ver Locações</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-3">
-    <div class="card text-white bg-danger shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Canceladas</h5>
-        <p class="card-text display-6">{{ locacoes_canceladas }}</p>
-      </div>
-      <div class="card-footer text-center">
-        <a href="{{ url_for('locacoes') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
-      </div>
-    </div>
-  </div>
-</div>
+<h1 style="color:red;">TESTE DASHBOARD - se você vê isso, Jinja funciona</h1>
 {% endblock %}
