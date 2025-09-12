@@ -31,12 +31,16 @@ def login():
         email = request.form["email"]
         senha = request.form["senha"]
 
-        # Query explícita com apenas as colunas necessárias
-        cur.execute("SELECT id, email, senha FROM usuarios WHERE email = %s", (email,))
+        # 🔄 1. Query agora busca também o username
+        cur.execute("SELECT id, username, email, senha FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
 
         if user and check_password_hash(user["senha"], senha):
+            # 🔄 2. Além do user_id e user_email, também salvamos o username
             session["user_id"] = user["id"]
+            session["user_email"] = user["email"]
+            session["username"] = user["username"]   # <-- ADICIONADO
+
             return redirect(url_for("dashboard"))
         else:
             flash("E-mail ou senha inválidos", "error")
