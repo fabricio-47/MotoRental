@@ -1,16 +1,55 @@
 {% extends 'base.html' %}
+
 {% block content %}
 <h2>Clientes</h2>
+
+<!-- Formulário de cadastro de clientes -->
 <form method="post">
-  <input name="nome" placeholder="Nome" required>
-  <input name="email" placeholder="E-mail">
-  <input name="telefone" placeholder="Telefone">
-  <button class="btn btn-success">Adicionar</button>
+    <input type="text" name="nome" placeholder="Nome" required>
+    <input type="email" name="email" placeholder="E-mail">
+    <input type="text" name="telefone" placeholder="Telefone">
+
+    <!-- Novos campos -->
+    <input type="text" name="cpf" placeholder="CPF">
+    <input type="text" name="endereco" placeholder="Endereço">
+    <input type="date" name="data_nascimento" placeholder="Data de Nascimento">
+    <textarea name="observacoes" placeholder="Observações"></textarea>
+
+    <button class="btn btn-success">Adicionar Cliente</button>
 </form>
+
 <hr>
-<ul>
-  {% for c in clientes %}
-    <li>{{ c.nome }} - {{ c.email }} - {{ c.telefone }}</li>
-  {% endfor %}
-</ul>
+
+<!-- Lista de clientes -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Telefone</th>
+            <th>CPF</th>
+            <th>Endereço</th>
+            <th>Data de Nascimento</th>
+            <th>Observações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in clientes %}
+        <tr>
+            <td>{{ c.nome }}</td>
+            <td>{{ c.email }}</td>
+            <td>{{ c.telefone }}</td>
+            <td>{{ c.cpf }}</td>
+            <td>{{ c.endereco }}</td>
+            <td>{{ c.data_nascimento }}</td>
+            <td>{{ c.observacoes }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7">Nenhum cliente cadastrado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 {% endblock %}

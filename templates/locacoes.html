@@ -1,22 +1,46 @@
 {% extends 'base.html' %}
+
 {% block content %}
 <h2>Locações</h2>
+
+<!-- Formulário para nova locação -->
 <form method="post">
-  <select name="cliente_id" required>
-    <option value="">Cliente...</option>
-    {% for c in clientes %}<option value="{{ c.id }}">{{ c.nome }}</option>{% endfor %}
-  </select>
-  <select name="moto_id" required>
-    <option value="">Moto...</option>
-    {% for m in motos %}<option value="{{ m.id }}">{{ m.modelo }}</option>{% endfor %}
-  </select>
-  <input type="date" name="data_inicio" required>
-  <button class="btn btn-success">Nova Locação</button>
+    <select name="cliente_id" required>
+        <option value="">Cliente...</option>
+        {% for c in clientes %}
+            <option value="{{ c.id }}">{{ c.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="moto_id" required>
+        <option value="">Moto...</option>
+        {% for m in motos %}
+            <option value="{{ m.id }}">{{ m.modelo }}</option>
+        {% endfor %}
+    </select>
+
+    <input type="date" name="data_inicio" required>
+    <button class="btn btn-success">Nova Locação</button>
 </form>
+
 <hr>
+
+<!-- Lista de locações -->
 <ul>
-  {% for l in locacoes %}
-    <li>{{ l.nome }} alugou {{ l.modelo }} em {{ l.data_inicio }}</li>
-  {% endfor %}
+    {% for l in locacoes %}
+    <li>
+        {{ l.nome }} alugou {{ l.modelo }} em {{ l.data_inicio }}
+
+        <!-- Botão cancelar -->
+        <form action="{{ url_for('cancelar_locacao', id=l.id) }}" method="post" style="display:inline;">
+            <button type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta locação?')">
+                Cancelar
+            </button>
+        </form>
+    </li>
+    {% else %}
+    <li>Nenhuma locação registrada.</li>
+    {% endfor %}
 </ul>
+
 {% endblock %}

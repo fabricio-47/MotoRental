@@ -99,7 +99,6 @@ def motos():
     return render_template("motos.html", motos=motos)
 
 
-# CLIENTES
 @app.route("/clientes", methods=["GET", "POST"])
 def clientes():
     conn = get_db()
@@ -108,8 +107,16 @@ def clientes():
         nome = request.form["nome"]
         email = request.form["email"]
         telefone = request.form["telefone"]
-        cur.execute("INSERT INTO clientes (nome, email, telefone) VALUES (%s,%s,%s)",
-                    (nome, email, telefone))
+        cpf = request.form.get("cpf")
+        endereco = request.form.get("endereco")
+        data_nascimento = request.form.get("data_nascimento")
+        observacoes = request.form.get("observacoes")
+
+        cur.execute("""
+            INSERT INTO clientes 
+                (nome, email, telefone, cpf, endereco, data_nascimento, observacoes) 
+            VALUES (%s,%s,%s,%s,%s,%s,%s)
+        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes))
         conn.commit()
         return redirect(url_for("clientes"))
 
@@ -117,7 +124,6 @@ def clientes():
     clientes = cur.fetchall()
     cur.close()
     return render_template("clientes.html", clientes=clientes)
-
 
 # LOCAÇÕES
 @app.route("/locacoes", methods=["GET", "POST"])
@@ -137,10 +143,12 @@ def locacoes():
         conn.commit()
         return redirect(url_for("locacoes"))
 
-    cur.execute("""SELECT l.id, c.nome, m.modelo, l.data_inicio, l.data_fim
+    # traz apenas locações não canceladas
+    cur.execute("""SELECT l.id, c.nome, m.modelo, l.data_inicio, l.data_fim, l.cancelado
                    FROM locacoes l
                    JOIN clientes c ON l.cliente_id=c.id
-                   JOIN motos m ON l.moto_id=m.id""")
+                   JOIN motos m ON l.moto_id=m.id
+                   WHERE l.cancelado = FALSE""")
     locacoes = cur.fetchall()
 
     cur.execute("SELECT id, nome FROM clientes")
@@ -152,6 +160,24 @@ def locacoes():
     cur.close()
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
+
+# Rota para cancelar locação
+@app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
+def cancelar_locacao(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    # pega moto vinculada
+    cur.execute("SELECT moto_id FROM locacoes WHERE id = %s", (id,))
+    locacao = cur.fetchone()
+    if locacao:
+        moto_id = locacao["moto_id"]
+        cur.execute("UPDATE locacoes SET cancelado = TRUE WHERE id = %s", (id,))
+        cur.execute("UPDATE motos SET disponivel = TRUE WHERE id = %s", (moto_id,))
+        conn.commit()
+
+    cur.close()
+    return redirect(url_for("locacoes"))
 
 # Rodar localmente
 if __name__ == "__main__":
