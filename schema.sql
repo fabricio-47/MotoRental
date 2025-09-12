@@ -7,8 +7,10 @@ DROP TABLE IF EXISTS locacoes CASCADE;
 -- Usuários (login/admin)
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    senha TEXT NOT NULL
+    username VARCHAR(100) UNIQUE NOT NULL, -- novo campo para login por usuário
+    email TEXT UNIQUE NOT NULL,            -- email continua único
+    senha TEXT NOT NULL,                   -- senha hash (bcrypt/werkzeug)
+    is_admin BOOLEAN DEFAULT FALSE         -- flag admin
 );
 
 -- Motos
