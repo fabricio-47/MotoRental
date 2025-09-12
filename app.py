@@ -56,19 +56,15 @@ def dashboard():
     conn = get_db()
     cur = conn.cursor()
 
-    # Total clientes
     cur.execute("SELECT COUNT(*) AS total FROM clientes")
     total_clientes = cur.fetchone()["total"]
 
-    # Total motos
     cur.execute("SELECT COUNT(*) AS total FROM motos")
     total_motos = cur.fetchone()["total"]
 
-    # Locações ativas
     cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = FALSE")
     locacoes_ativas = cur.fetchone()["total"]
 
-    # Locações canceladas
     cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = TRUE")
     locacoes_canceladas = cur.fetchone()["total"]
 
