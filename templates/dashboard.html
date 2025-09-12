@@ -1,9 +1,72 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h1>Dashboard</h1>
-<ul>
-  <li>Motos: {{ stats.total_motos }}</li>
-  <li>Clientes: {{ stats.total_clientes }}</li>
-  <li>Locações ativas: {{ stats.locacoes_ativas }}</li>
-</ul>
+<h2 class="mb-4">Dashboard</h2>
+
+<!-- Cards de resumo -->
+<div class="row g-4 mb-4">
+  <!-- Clientes -->
+  <div class="col-md-3">
+    <div class="card text-white bg-primary shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Clientes</h5>
+        <p class="card-text display-6">{{ total_clientes }}</p>
+      </div>
+      <div class="card-footer text-center">
+        <a href="{{ url_for('clientes') }}" class="btn btn-light btn-sm">Ver Clientes</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Motos -->
+  <div class="col-md-3">
+    <div class="card text-white bg-success shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Motos</h5>
+        <p class="card-text display-6">{{ total_motos }}</p>
+      </div>
+      <div class="card-footer text-center">
+        <a href="{{ url_for('motos') }}" class="btn btn-light btn-sm">Ver Motos</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Locações ativas -->
+  <div class="col-md-3">
+    <div class="card text-dark bg-warning shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Locações Ativas</h5>
+        <p class="card-text display-6">{{ locacoes_ativas }}</p>
+      </div>
+      <div class="card-footer text-center">
+        <a href="{{ url_for('locacoes') }}" class="btn btn-dark btn-sm">Ver Locações</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Locações canceladas -->
+  <div class="col-md-3">
+    <div class="card text-white bg-danger shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Canceladas</h5>
+        <p class="card-text display-6">{{ locacoes_canceladas }}</p>
+      </div>
+      <div class="card-footer text-center">
+        <a href="{{ url_for('locacoes') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sessão extra (exemplo futuro: estatísticas ou gráficos) -->
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Relatórios / Estatísticas</h5>
+    <p class="text-muted">Aqui você pode exibir gráficos, indicadores ou informações adicionais.</p>
+    <!-- Exemplo: gráfico futuro -->
+    <div class="alert alert-info">
+      🔧 Espaço reservado para gráficos (por exemplo: clientes cadastrados por mês, motos mais alugadas, etc).
+    </div>
+  </div>
+</div>
 {% endblock %}

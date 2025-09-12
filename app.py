@@ -51,32 +51,35 @@ def logout():
     return redirect(url_for("login"))
 
 
-# DASHBOARD
 @app.route("/dashboard")
 def dashboard():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT COUNT(*) as total FROM motos")
-    total_motos = cur.fetchone()["total"]
-
-    cur.execute("SELECT COUNT(*) as total FROM clientes")
+    # Total clientes
+    cur.execute("SELECT COUNT(*) AS total FROM clientes")
     total_clientes = cur.fetchone()["total"]
 
-    cur.execute("SELECT COUNT(*) as total FROM locacoes WHERE data_fim IS NULL")
+    # Total motos
+    cur.execute("SELECT COUNT(*) AS total FROM motos")
+    total_motos = cur.fetchone()["total"]
+
+    # Locações ativas
+    cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = FALSE")
     locacoes_ativas = cur.fetchone()["total"]
 
-    cur.close()
+    # Locações canceladas
+    cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = TRUE")
+    locacoes_canceladas = cur.fetchone()["total"]
 
-    stats = {
-        "total_motos": total_motos,
-        "total_clientes": total_clientes,
-        "locacoes_ativas": locacoes_ativas
-    }
-    return render_template("dashboard.html", stats=stats)
+    cur.close()
+    return render_template(
+        "dashboard.html",
+        total_clientes=total_clientes,
+        total_motos=total_motos,
+        locacoes_ativas=locacoes_ativas,
+        locacoes_canceladas=locacoes_canceladas
+    )
 
 
 # MOTOS
