@@ -3,9 +3,7 @@
 {% block content %}
 <h2 class="mb-4">Dashboard</h2>
 
-<!-- Cards de resumo -->
 <div class="row g-4 mb-4">
-  <!-- Clientes -->
   <div class="col-md-3">
     <div class="card text-white bg-primary shadow-sm">
       <div class="card-body">
@@ -18,7 +16,6 @@
     </div>
   </div>
 
-  <!-- Motos -->
   <div class="col-md-3">
     <div class="card text-white bg-success shadow-sm">
       <div class="card-body">
@@ -31,7 +28,6 @@
     </div>
   </div>
 
-  <!-- Locações ativas -->
   <div class="col-md-3">
     <div class="card text-dark bg-warning shadow-sm">
       <div class="card-body">
@@ -44,7 +40,6 @@
     </div>
   </div>
 
-  <!-- Locações canceladas -->
   <div class="col-md-3">
     <div class="card text-white bg-danger shadow-sm">
       <div class="card-body">
@@ -54,18 +49,6 @@
       <div class="card-footer text-center">
         <a href="{{ url_for('locacoes') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- Sessão extra (exemplo futuro: estatísticas ou gráficos) -->
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h5 class="card-title">Relatórios / Estatísticas</h5>
-    <p class="text-muted">Aqui você pode exibir gráficos, indicadores ou informações adicionais.</p>
-    <!-- Exemplo: gráfico futuro -->
-    <div class="alert alert-info">
-      🔧 Espaço reservado para gráficos (por exemplo: clientes cadastrados por mês, motos mais alugadas, etc).
     </div>
   </div>
 </div>
