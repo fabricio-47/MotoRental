@@ -52,35 +52,30 @@ def logout():
 
 
 @app.route("/dashboard")
-def dashboard():
-    conn = get_db()
-    cur = conn.cursor()
+   def dashboard():
+       conn = get_db()
+       cur = conn.cursor()
 
-    # Total clientes
-    cur.execute("SELECT COUNT(*) AS total FROM clientes")
-    total_clientes = cur.fetchone()["total"]
+       cur.execute("SELECT COUNT(*) AS total FROM clientes")
+       total_clientes = cur.fetchone()["total"]
 
-    # Total motos
-    cur.execute("SELECT COUNT(*) AS total FROM motos")
-    total_motos = cur.fetchone()["total"]
+       cur.execute("SELECT COUNT(*) AS total FROM motos")
+       total_motos = cur.fetchone()["total"]
 
-    # Locações ativas
-    cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = FALSE")
-    locacoes_ativas = cur.fetchone()["total"]
+       cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = FALSE")
+       locacoes_ativas = cur.fetchone()["total"]
 
-    # Locações canceladas
-    cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = TRUE")
-    locacoes_canceladas = cur.fetchone()["total"]
+       cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = TRUE")
+       locacoes_canceladas = cur.fetchone()["total"]
 
-    cur.close()
-    return render_template(
-        "dashboard.html",
-        total_clientes=total_clientes,
-        total_motos=total_motos,
-        locacoes_ativas=locacoes_ativas,
-        locacoes_canceladas=locacoes_canceladas
-    )
-
+       cur.close()
+       return render_template(
+           "dashboard.html",
+           total_clientes=total_clientes,
+           total_motos=total_motos,
+           locacoes_ativas=locacoes_ativas,
+           locacoes_canceladas=locacoes_canceladas
+       )
 
 # MOTOS
 @app.route("/motos", methods=["GET", "POST"])
