@@ -127,7 +127,7 @@ def clientes():
     cur.close()
     return render_template("clientes.html", clientes=clientes)
 
-    @app.route("/motos/<int:moto_id>/imagens", methods=["GET", "POST"])
+@app.route("/motos/<int:moto_id>/imagens", methods=["GET", "POST"])
 def moto_imagens(moto_id):
     conn = get_db()
     cur = conn.cursor()
