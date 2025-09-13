@@ -41,6 +41,7 @@
             <th>Modelo</th>
             <th>Ano</th>
             <th>Disponibilidade</th>
+            <th>Ações</th> <!-- 🔹 nova coluna -->
           </tr>
         </thead>
         <tbody>
@@ -56,10 +57,16 @@
                 <span class="badge bg-danger">Indisponível</span>
               {% endif %}
             </td>
+            <td>
+              <!-- 🔹 Botão para gerenciar imagens da moto -->
+              <a href="{{ url_for('moto_imagens', moto_id=m.id) }}" class="btn btn-sm btn-info">
+                Imagens
+              </a>
+            </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="4" class="text-center text-muted">Nenhuma moto cadastrada ainda.</td>
+            <td colspan="5" class="text-center text-muted">Nenhuma moto cadastrada ainda.</td>
           </tr>
           {% endfor %}
         </tbody>

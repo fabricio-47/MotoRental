@@ -1,4 +1,5 @@
 -- Apaga tabelas antigas (somente no período de testes!)
+DROP TABLE IF EXISTS moto_imagens CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 DROP TABLE IF EXISTS motos CASCADE;
 DROP TABLE IF EXISTS clientes CASCADE;
@@ -42,4 +43,12 @@ CREATE TABLE locacoes (
     data_inicio DATE NOT NULL,
     data_fim DATE,
     cancelado BOOLEAN DEFAULT FALSE -- se TRUE, aluguel cancelado
+);
+
+-- Imagens das motos
+CREATE TABLE moto_imagens (
+    id SERIAL PRIMARY KEY,
+    moto_id INTEGER NOT NULL REFERENCES motos (id) ON DELETE CASCADE,
+    arquivo TEXT NOT NULL,       -- caminho/filename no servidor
+    data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,6 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash, secure_filename
 from database import get_db, init_app
 
 app = Flask(__name__)
@@ -127,6 +127,59 @@ def clientes():
     cur.close()
     return render_template("clientes.html", clientes=clientes)
 
+    @app.route("/motos/<int:moto_id>/imagens", methods=["GET", "POST"])
+def moto_imagens(moto_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        if "imagem" in request.files:
+            file = request.files["imagem"]
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(path)
+
+                # salvar no banco
+                cur.execute(
+                    "INSERT INTO moto_imagens (moto_id, arquivo) VALUES (%s, %s)",
+                    (moto_id, filename)
+                )
+                conn.commit()
+
+    # buscar todas imagens da moto
+    cur.execute("SELECT * FROM moto_imagens WHERE moto_id = %s ORDER BY data_upload DESC", (moto_id,))
+    imagens = cur.fetchall()
+
+    cur.execute("SELECT id, modelo, placa FROM motos WHERE id=%s", (moto_id,))
+    moto = cur.fetchone()
+
+    cur.close()
+    return render_template("moto_imagens.html", moto=moto, imagens=imagens)
+
+    # 🔹 Rota para excluir imagem de uma moto
+@app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])
+def excluir_imagem_moto(moto_id, imagem_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Buscar o arquivo para excluir do disco
+    cur.execute("SELECT arquivo FROM moto_imagens WHERE id = %s AND moto_id = %s", (imagem_id, moto_id))
+    imagem = cur.fetchone()
+
+    if imagem:
+        # Excluir arquivo físico do servidor
+        arquivo_path = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], imagem["arquivo"])
+        if os.path.exists(arquivo_path):
+            os.remove(arquivo_path)
+
+        # Excluir registro do banco
+        cur.execute("DELETE FROM moto_imagens WHERE id = %s AND moto_id = %s", (imagem_id, moto_id))
+        conn.commit()
+
+    cur.close()
+    return redirect(url_for('moto_imagens', moto_id=moto_id))
+
 # LOCAÇÕES
 @app.route("/locacoes", methods=["GET", "POST"])
 def locacoes():
@@ -180,6 +233,20 @@ def cancelar_locacao(id):
 
     cur.close()
     return redirect(url_for("locacoes"))
+
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads_motos")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# rota para servir imagens
+@app.route('/uploads_motos/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # Rodar localmente
 if __name__ == "__main__":
