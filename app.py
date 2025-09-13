@@ -10,6 +10,15 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
 app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL")  # Postgres no Render
 
+# 🔹 Configuração para uploads de imagens de motos
+UPLOAD_FOLDER_MOTOS = os.path.join(os.getcwd(), "uploads_motos")
+os.makedirs(UPLOAD_FOLDER_MOTOS, exist_ok=True)
+app.config["UPLOAD_FOLDER_MOTOS"] = UPLOAD_FOLDER_MOTOS
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 # Inicializa funções de banco
 init_app(app)
 
@@ -32,16 +41,13 @@ def login():
         email = request.form["email"]
         senha = request.form["senha"]
 
-        # 🔄 1. Query agora busca também o username
         cur.execute("SELECT id, username, email, senha FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
 
         if user and check_password_hash(user["senha"], senha):
-            # 🔄 2. Além do user_id e user_email, também salvamos o username
             session["user_id"] = user["id"]
             session["user_email"] = user["email"]
-            session["username"] = user["username"]   # <-- ADICIONADO
-
+            session["username"] = user["username"]
             return redirect(url_for("dashboard"))
         else:
             flash("E-mail ou senha inválidos", "error")
@@ -81,6 +87,7 @@ def dashboard():
         locacoes_ativas=locacoes_ativas,
         locacoes_canceladas=locacoes_canceladas
     )
+
 
 # MOTOS
 @app.route("/motos", methods=["GET", "POST"])
@@ -128,6 +135,8 @@ def clientes():
     cur.close()
     return render_template("clientes.html", clientes=clientes)
 
+
+# IMAGENS DAS MOTOS
 @app.route("/motos/<int:moto_id>/imagens", methods=["GET", "POST"])
 def moto_imagens(moto_id):
     conn = get_db()
@@ -138,48 +147,44 @@ def moto_imagens(moto_id):
             file = request.files["imagem"]
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
-                path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                path = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], filename)
                 file.save(path)
 
-                # salvar no banco
                 cur.execute(
                     "INSERT INTO moto_imagens (moto_id, arquivo) VALUES (%s, %s)",
                     (moto_id, filename)
                 )
                 conn.commit()
 
-    # buscar todas imagens da moto
     cur.execute("SELECT * FROM moto_imagens WHERE moto_id = %s ORDER BY data_upload DESC", (moto_id,))
     imagens = cur.fetchall()
 
-    cur.execute("SELECT id, modelo, placa FROM motos WHERE id=%s", (moto_id,))
+    cur.execute("SELECT id, modelo, placa, ano FROM motos WHERE id=%s", (moto_id,))
     moto = cur.fetchone()
 
     cur.close()
     return render_template("moto_imagens.html", moto=moto, imagens=imagens)
 
-    # 🔹 Rota para excluir imagem de uma moto
+
 @app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])
 def excluir_imagem_moto(moto_id, imagem_id):
     conn = get_db()
     cur = conn.cursor()
 
-    # Buscar o arquivo para excluir do disco
     cur.execute("SELECT arquivo FROM moto_imagens WHERE id = %s AND moto_id = %s", (imagem_id, moto_id))
     imagem = cur.fetchone()
 
     if imagem:
-        # Excluir arquivo físico do servidor
         arquivo_path = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], imagem["arquivo"])
         if os.path.exists(arquivo_path):
             os.remove(arquivo_path)
 
-        # Excluir registro do banco
         cur.execute("DELETE FROM moto_imagens WHERE id = %s AND moto_id = %s", (imagem_id, moto_id))
         conn.commit()
 
     cur.close()
     return redirect(url_for('moto_imagens', moto_id=moto_id))
+
 
 # LOCAÇÕES
 @app.route("/locacoes", methods=["GET", "POST"])
@@ -191,15 +196,12 @@ def locacoes():
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
 
-        # cria locação
         cur.execute("INSERT INTO locacoes (cliente_id, moto_id, data_inicio) VALUES (%s,%s,%s)",
                     (cliente_id, moto_id, data_inicio))
-        # marca moto como não disponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
         return redirect(url_for("locacoes"))
 
-    # traz apenas locações não canceladas
     cur.execute("""SELECT l.id, c.nome, m.modelo, l.data_inicio, l.data_fim, l.cancelado
                    FROM locacoes l
                    JOIN clientes c ON l.cliente_id=c.id
@@ -217,13 +219,11 @@ def locacoes():
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
 
-# Rota para cancelar locação
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
 def cancelar_locacao(id):
     conn = get_db()
     cur = conn.cursor()
 
-    # pega moto vinculada
     cur.execute("SELECT moto_id FROM locacoes WHERE id = %s", (id,))
     locacao = cur.fetchone()
     if locacao:
@@ -235,19 +235,12 @@ def cancelar_locacao(id):
     cur.close()
     return redirect(url_for("locacoes"))
 
-    UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads_motos")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# rota para servir imagens
+# Servir imagens (rota pública)
 @app.route('/uploads_motos/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config['UPLOAD_FOLDER_MOTOS'], filename)
+
 
 # Rodar localmente
 if __name__ == "__main__":
