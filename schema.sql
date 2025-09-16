@@ -64,11 +64,3 @@ CREATE TABLE moto_imagens (
     arquivo TEXT NOT NULL,       -- caminho/filename no servidor
     data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE TABLE servicos_locacao (
-    id SERIAL PRIMARY KEY,
-    locacao_id INTEGER NOT NULL REFERENCES locacoes (id) ON DELETE CASCADE,
-    descricao TEXT NOT NULL,               -- Ex: "Troca de óleo", "Manutenção freios"
-    valor DECIMAL(10,2) DEFAULT 0,         -- opcional: custo do serviço
-    data_servico DATE DEFAULT CURRENT_DATE -- quando foi feito
-);
