@@ -19,6 +19,15 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# 🔹 Configuração para upload de contratos (PDF)
+UPLOAD_FOLDER_CONTRATOS = os.path.join(os.getcwd(), "uploads_contratos")
+os.makedirs(UPLOAD_FOLDER_CONTRATOS, exist_ok=True)
+app.config["UPLOAD_FOLDER_CONTRATOS"] = UPLOAD_FOLDER_CONTRATOS
+ALLOWED_CONTRACT_EXTENSIONS = {'pdf'}
+
+def allowed_contract(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_CONTRACT_EXTENSIONS
+
 # Inicializa funções de banco
 init_app(app)
 
@@ -186,32 +195,49 @@ def excluir_imagem_moto(moto_id, imagem_id):
     return redirect(url_for('moto_imagens', moto_id=moto_id))
 
 
-# LOCAÇÕES
+# LOCAÇÕES (ATUALIZADA COM OBSERVAÇÕES + CONTRATO PDF)
 @app.route("/locacoes", methods=["GET", "POST"])
 def locacoes():
     conn = get_db()
     cur = conn.cursor()
+
     if request.method == "POST":
         cliente_id = request.form["cliente_id"]
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
+        observacoes = request.form.get("observacoes")
+
+        # 🔹 Upload do contrato PDF
+        contrato_pdf = None
+        if "contrato_pdf" in request.files:
+            file = request.files["contrato_pdf"]
+            if file and allowed_contract(file.filename):
+                filename = secure_filename(file.filename)
+                contrato_path = os.path.join(app.config["UPLOAD_FOLDER_CONTRATOS"], filename)
+                file.save(contrato_path)
+                contrato_pdf = filename
 
         # cria locação
-        cur.execute("INSERT INTO locacoes (cliente_id, moto_id, data_inicio) VALUES (%s,%s,%s)",
-                    (cliente_id, moto_id, data_inicio))
+        cur.execute("""
+            INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf) 
+            VALUES (%s,%s,%s,%s,%s)
+        """, (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf))
+
         # marca moto como não disponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
         return redirect(url_for("locacoes"))
 
-    # 🔹 locações ativas (AGORA inclui a placa)
+    # 🔹 locações ativas (inclui observações e contrato)
     cur.execute("""SELECT l.id, 
                           c.nome, 
                           m.modelo, 
                           m.placa,
                           l.data_inicio, 
                           l.data_fim, 
-                          l.cancelado
+                          l.cancelado,
+                          l.observacoes,
+                          l.contrato_pdf
                    FROM locacoes l
                    JOIN clientes c ON l.cliente_id=c.id
                    JOIN motos m ON l.moto_id=m.id
@@ -222,7 +248,7 @@ def locacoes():
     cur.execute("SELECT id, nome FROM clientes")
     clientes = cur.fetchall()
 
-    # 🔹 motos disponíveis (já incluía a placa)
+    # 🔹 motos disponíveis
     cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel=TRUE")
     motos = cur.fetchall()
 
@@ -251,6 +277,12 @@ def cancelar_locacao(id):
 @app.route('/uploads_motos/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_MOTOS'], filename)
+
+
+# 🔹 Servir contratos PDF (rota pública)
+@app.route('/uploads_contratos/<path:filename>')
+def uploaded_contract(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER_CONTRATOS'], filename)
 
 
 # Rodar localmente

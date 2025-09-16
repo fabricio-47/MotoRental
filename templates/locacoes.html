@@ -7,7 +7,8 @@
 <div class="card mb-4 shadow-sm">
   <div class="card-body">
     <h5 class="card-title">Nova Locação</h5>
-    <form method="post">
+    <!-- Adicionado enctype para upload de arquivo -->
+    <form method="post" enctype="multipart/form-data">
       <div class="row g-3 align-items-end">
         <div class="col-md-4">
           <label class="form-label">Cliente</label>
@@ -34,6 +35,15 @@
         <div class="col-md-1">
           <button class="btn btn-success w-100">Salvar</button>
         </div>
+        <div class="col-md-12">
+          <label class="form-label">Observações</label>
+          <textarea name="observacoes" class="form-control" rows="3" placeholder="Ex.: estado da moto, caução, km inicial, observações do cliente..."></textarea>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">Contrato (PDF)</label>
+          <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
+          <small class="text-muted">Apenas arquivos .pdf</small>
+        </div>
       </div>
     </form>
   </div>
@@ -51,6 +61,8 @@
             <th>Moto</th>
             <th>Data Início</th>
             <th>Data Fim</th>
+            <th>Observações</th>
+            <th>Contrato</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -61,6 +73,18 @@
             <td>{{ l.modelo }} - {{ l.placa }}</td>
             <td>{{ l.data_inicio }}</td>
             <td>{{ l.data_fim or '-' }}</td>
+            <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ l.observacoes }}">
+              {{ l.observacoes or '-' }}
+            </td>
+            <td>
+              {% if l.contrato_pdf %}
+                <a href="{{ url_for('uploaded_contract', filename=l.contrato_pdf) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                  Ver PDF
+                </a>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
             <td>
               <form action="{{ url_for('cancelar_locacao', id=l.id) }}" method="post" style="display:inline;">
                 <button type="submit" class="btn btn-sm btn-danger"
@@ -72,7 +96,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="text-center text-muted">Nenhuma locação registrada.</td>
+            <td colspan="7" class="text-center text-muted">Nenhuma locação registrada.</td>
           </tr>
           {% endfor %}
         </tbody>

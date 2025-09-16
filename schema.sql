@@ -35,14 +35,16 @@ CREATE TABLE clientes (
     observacoes TEXT
 );
 
--- Locações com flag de cancelamento
+-- Locações com flag de cancelamento + observações + upload contrato
 CREATE TABLE locacoes (
     id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL REFERENCES clientes (id) ON DELETE CASCADE,
     moto_id INTEGER NOT NULL REFERENCES motos (id) ON DELETE CASCADE,
     data_inicio DATE NOT NULL,
     data_fim DATE,
-    cancelado BOOLEAN DEFAULT FALSE -- se TRUE, aluguel cancelado
+    cancelado BOOLEAN DEFAULT FALSE,   -- se TRUE, aluguel cancelado
+    observacoes TEXT,                  -- novas anotações internas
+    contrato_pdf VARCHAR(255)          -- filename do contrato (PDF)
 );
 
 -- Imagens das motos
