@@ -1,4 +1,5 @@
 -- Apaga tabelas antigas (somente no período de testes!)
+DROP TABLE IF EXISTS servicos_locacao CASCADE;
 DROP TABLE IF EXISTS moto_imagens CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 DROP TABLE IF EXISTS motos CASCADE;
@@ -47,10 +48,27 @@ CREATE TABLE locacoes (
     contrato_pdf VARCHAR(255)          -- filename do contrato (PDF)
 );
 
+-- Serviços feitos durante uma locação
+CREATE TABLE servicos_locacao (
+    id SERIAL PRIMARY KEY,
+    locacao_id INTEGER NOT NULL REFERENCES locacoes (id) ON DELETE CASCADE,
+    descricao TEXT NOT NULL,               -- Ex: troca de óleo, revisão, multa
+    valor DECIMAL(10,2) DEFAULT 0,         -- custo ou taxa do serviço
+    data_servico DATE DEFAULT CURRENT_DATE -- data do serviço
+);
+
 -- Imagens das motos
 CREATE TABLE moto_imagens (
     id SERIAL PRIMARY KEY,
     moto_id INTEGER NOT NULL REFERENCES motos (id) ON DELETE CASCADE,
     arquivo TEXT NOT NULL,       -- caminho/filename no servidor
     data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE servicos_locacao (
+    id SERIAL PRIMARY KEY,
+    locacao_id INTEGER NOT NULL REFERENCES locacoes (id) ON DELETE CASCADE,
+    descricao TEXT NOT NULL,               -- Ex: "Troca de óleo", "Manutenção freios"
+    valor DECIMAL(10,2) DEFAULT 0,         -- opcional: custo do serviço
+    data_servico DATE DEFAULT CURRENT_DATE -- quando foi feito
 );

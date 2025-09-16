@@ -272,6 +272,43 @@ def cancelar_locacao(id):
     cur.close()
     return redirect(url_for("locacoes"))
 
+    # SERVIÇOS NAS LOCAÇÕES
+@app.route("/locacoes/<int:locacao_id>/servicos", methods=["GET", "POST"])
+def servicos_locacao(locacao_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        descricao = request.form["descricao"]
+        valor = request.form.get("valor") or 0
+        cur.execute("""
+            INSERT INTO servicos_locacao (locacao_id, descricao, valor) 
+            VALUES (%s, %s, %s)
+        """, (locacao_id, descricao, valor))
+        conn.commit()
+
+    # Buscar dados da locação e cliente
+    cur.execute("""
+        SELECT l.id, c.nome, m.modelo, m.placa
+        FROM locacoes l
+        JOIN clientes c ON l.cliente_id = c.id
+        JOIN motos m ON l.moto_id = m.id
+        WHERE l.id = %s
+    """, (locacao_id,))
+    locacao = cur.fetchone()
+
+    # Buscar serviços dessa locação
+    cur.execute("""
+        SELECT id, descricao, valor, data_servico
+        FROM servicos_locacao
+        WHERE locacao_id = %s
+        ORDER BY data_servico DESC
+    """, (locacao_id,))
+    servicos = cur.fetchall()
+
+    cur.close()
+    return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
+
 
 # Servir imagens (rota pública)
 @app.route('/uploads_motos/<path:filename>')
