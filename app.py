@@ -196,23 +196,34 @@ def locacoes():
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
 
+        # cria locação
         cur.execute("INSERT INTO locacoes (cliente_id, moto_id, data_inicio) VALUES (%s,%s,%s)",
                     (cliente_id, moto_id, data_inicio))
+        # marca moto como não disponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
         return redirect(url_for("locacoes"))
 
-    cur.execute("""SELECT l.id, c.nome, m.modelo, l.data_inicio, l.data_fim, l.cancelado
+    # 🔹 locações ativas (AGORA inclui a placa)
+    cur.execute("""SELECT l.id, 
+                          c.nome, 
+                          m.modelo, 
+                          m.placa,
+                          l.data_inicio, 
+                          l.data_fim, 
+                          l.cancelado
                    FROM locacoes l
                    JOIN clientes c ON l.cliente_id=c.id
                    JOIN motos m ON l.moto_id=m.id
                    WHERE l.cancelado = FALSE""")
     locacoes = cur.fetchall()
 
+    # 🔹 clientes
     cur.execute("SELECT id, nome FROM clientes")
     clientes = cur.fetchall()
 
-    cur.execute("SELECT id, modelo FROM motos WHERE disponivel=TRUE")
+    # 🔹 motos disponíveis (já incluía a placa)
+    cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel=TRUE")
     motos = cur.fetchall()
 
     cur.close()

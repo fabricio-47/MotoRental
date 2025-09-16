@@ -23,7 +23,7 @@
           <select name="moto_id" class="form-select" required>
             <option value="">Selecione...</option>
             {% for m in motos %}
-              <option value="{{ m.id }}">{{ m.modelo }}</option>
+              <option value="{{ m.id }}">{{ m.modelo }} - {{ m.placa }}</option>
             {% endfor %}
           </select>
         </div>
@@ -58,7 +58,7 @@
           {% for l in locacoes %}
           <tr>
             <td>{{ l.nome }}</td>
-            <td>{{ l.modelo }}</td>
+            <td>{{ l.modelo }} - {{ l.placa }}</td>
             <td>{{ l.data_inicio }}</td>
             <td>{{ l.data_fim or '-' }}</td>
             <td>
