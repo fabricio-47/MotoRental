@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2 class="mb-4">Editar Cliente: {{ cliente.nome }}</h2>
+<h2 class="mb-4">Editar Cliente</h2>
 
 <div class="card shadow-sm">
   <div class="card-body">
-    <form method="post">
+    <!-- enctype obrigatório para upload -->
+    <form method="post" enctype="multipart/form-data">
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Nome</label>
@@ -13,37 +14,50 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Email</label>
-          <input type="email" name="email" class="form-control" value="{{ cliente.email or '' }}">
+          <input type="email" name="email" class="form-control" value="{{ cliente.email }}" required>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
           <label class="form-label">Telefone</label>
-          <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone or '' }}">
+          <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone }}">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
           <label class="form-label">CPF</label>
           <input type="text" name="cpf" class="form-control" value="{{ cliente.cpf or '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Data Nascimento</label>
-          <input type="date" name="data_nascimento" class="form-control" value="{{ cliente.data_nascimento or '' }}">
         </div>
         <div class="col-md-12">
           <label class="form-label">Endereço</label>
           <input type="text" name="endereco" class="form-control" value="{{ cliente.endereco or '' }}">
         </div>
+        <div class="col-md-6">
+          <label class="form-label">Data de Nascimento</label>
+          <input type="date" name="data_nascimento" class="form-control" value="{{ cliente.data_nascimento or '' }}">
+        </div>
         <div class="col-md-12">
           <label class="form-label">Observações</label>
           <textarea name="observacoes" class="form-control" rows="3">{{ cliente.observacoes or '' }}</textarea>
         </div>
+
+        <!-- 🔹 Campo para habilitação -->
+        <div class="col-md-12">
+          <label class="form-label">Habilitação (PDF/Imagem)</label>
+          {% if cliente.habilitacao_arquivo %}
+            <p>
+              Documento atual:
+              <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
+                 target="_blank"
+                 class="btn btn-sm btn-outline-primary">📄 Ver Habilitação</a>
+            </p>
+          {% endif %}
+          <input type="file" name="habilitacao" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+          <small class="text-muted">Deixe em branco se não quiser substituir</small>
+        </div>
       </div>
-      
+
       <div class="mt-4">
         <button class="btn btn-success">
           <i class="fas fa-save"></i> Salvar Alterações
         </button>
-        <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
-          <i class="fas fa-arrow-left"></i> Cancelar
-        </a>
+        <a href="{{ url_for('clientes') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Cancelar</a>
       </div>
     </form>
   </div>

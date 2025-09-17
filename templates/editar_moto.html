@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2 class="mb-4">Editar Moto: {{ moto.modelo }} - {{ moto.placa }}</h2>
+<h2 class="mb-4">Editar Moto</h2>
 
 <div class="card shadow-sm">
   <div class="card-body">
-    <form method="post">
+    <!-- enctype obrigatório para upload -->
+    <form method="post" enctype="multipart/form-data">
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label">Placa</label>
@@ -19,15 +20,25 @@
           <label class="form-label">Ano</label>
           <input type="number" name="ano" class="form-control" value="{{ moto.ano }}" required>
         </div>
+
+        <!-- 🔹 Campo para imagens -->
+        <div class="col-md-12">
+          <label class="form-label">Imagem da Moto</label>
+          {% if moto.imagem %}
+            <p>Imagem atual:</p>
+            <img src="{{ url_for('uploaded_file', filename=moto.imagem) }}" 
+                 alt="Imagem da moto" class="img-thumbnail mb-2" style="max-height:150px;">
+          {% endif %}
+          <input type="file" name="imagem" class="form-control" accept=".jpg,.jpeg,.png">
+          <small class="text-muted">Deixe em branco se não quiser substituir</small>
+        </div>
       </div>
-      
+
       <div class="mt-4">
         <button class="btn btn-success">
           <i class="fas fa-save"></i> Salvar Alterações
         </button>
-        <a href="{{ url_for('motos') }}" class="btn btn-secondary">
-          <i class="fas fa-arrow-left"></i> Cancelar
-        </a>
+        <a href="{{ url_for('motos') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Cancelar</a>
       </div>
     </form>
   </div>

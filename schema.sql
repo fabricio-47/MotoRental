@@ -30,7 +30,8 @@ CREATE TABLE motos (
     placa TEXT NOT NULL UNIQUE,
     modelo TEXT NOT NULL,
     ano INTEGER NOT NULL,
-    disponivel BOOLEAN DEFAULT TRUE
+    disponivel BOOLEAN DEFAULT TRUE,
+    imagem VARCHAR(255)                    -- 🚀 imagem principal da moto
 );
 
 -- ==========================================================
@@ -74,7 +75,7 @@ CREATE TABLE servicos_locacao (
 );
 
 -- ==========================================================
--- Imagens das motos
+-- Imagens das motos adicionais
 -- ==========================================================
 CREATE TABLE moto_imagens (
     id SERIAL PRIMARY KEY,

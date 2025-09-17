@@ -10,7 +10,8 @@
 
 <div class="card shadow-sm">
   <div class="card-body">
-    <form method="post">
+    <!-- 🔹 Importante: enctype para upload -->
+    <form method="post" enctype="multipart/form-data">
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Data Início</label>
@@ -23,6 +24,25 @@
         <div class="col-md-12">
           <label class="form-label">Observações</label>
           <textarea name="observacoes" class="form-control" rows="4">{{ locacao.observacoes or '' }}</textarea>
+        </div>
+
+        <!-- 🔹 Campo para contrato PDF -->
+        <div class="col-md-12">
+          <label class="form-label">Contrato (PDF)</label>
+
+          {% if locacao.contrato_pdf %}
+            <p>
+              Contrato atual:
+              <a href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
+                 target="_blank"
+                 class="btn btn-sm btn-outline-primary">
+                📄 Ver Contrato
+              </a>
+            </p>
+          {% endif %}
+
+          <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
+          <small class="text-muted">Deixe em branco se não quiser substituir</small>
         </div>
       </div>
       
