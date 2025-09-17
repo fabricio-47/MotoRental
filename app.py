@@ -250,7 +250,18 @@ def editar_cliente(id):
     cur.close()
     return render_template("editar_cliente.html", cliente=cliente)
 
-# (demais rotas de locações e serviços permanecem como você já tinha, incluindo contrato.pdf)
+
+# ---------- LOCAÇÕES (adicionada de volta) ----------
+@app.route("/locacoes", methods=["GET", "POST"])
+def locacoes():
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    # exemplo mínimo para não quebrar o url_for
+    cur.execute("SELECT * FROM locacoes LIMIT 10")
+    locacoes = cur.fetchall()
+    cur.close()
+    return render_template("locacoes.html", locacoes=locacoes)
+
 
 # ---------- Rotas de arquivos ----------
 @app.route('/uploads_motos/<path:filename>')
@@ -265,6 +276,8 @@ def uploaded_contract(filename):
 def uploaded_habilitacao(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_HABILITACOES'], filename)
 
+
 # ---------- Run ----------
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
