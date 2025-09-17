@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Editar Locação</h2>
+
+<div class="alert alert-info">
+  <strong>Cliente:</strong> {{ locacao.cliente_nome }} | 
+  <strong>Moto:</strong> {{ locacao.moto_modelo }} - {{ locacao.moto_placa }}
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Data Início</label>
+          <input type="date" name="data_inicio" class="form-control" value="{{ locacao.data_inicio }}" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Data Fim</label>
+          <input type="date" name="data_fim" class="form-control" value="{{ locacao.data_fim or '' }}">
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">Observações</label>
+          <textarea name="observacoes" class="form-control" rows="4">{{ locacao.observacoes or '' }}</textarea>
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <button class="btn btn-success">
+          <i class="fas fa-save"></i> Salvar Alterações
+        </button>
+        <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="alert alert-warning mt-3">
+  <i class="fas fa-info-circle"></i> 
+  <strong>Nota:</strong> Cliente e moto não podem ser alterados após criação da locação. 
+  Para isso, cancele esta locação e crie uma nova.
+</div>
+{% endblock %}

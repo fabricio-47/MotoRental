@@ -23,7 +23,9 @@
         </div>
       </div>
       <div class="mt-3">
-        <button class="btn btn-success">Adicionar Moto</button>
+        <button class="btn btn-success">
+          <i class="fas fa-plus"></i> Adicionar Moto
+        </button>
       </div>
     </form>
   </div>
@@ -41,7 +43,7 @@
             <th>Modelo</th>
             <th>Ano</th>
             <th>Disponibilidade</th>
-            <th>Ações</th> <!-- 🔹 nova coluna -->
+            <th style="width: 220px;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -58,9 +60,11 @@
               {% endif %}
             </td>
             <td>
-              <!-- 🔹 Botão para gerenciar imagens da moto -->
-              <a href="{{ url_for('moto_imagens', moto_id=m.id) }}" class="btn btn-sm btn-info">
-                Imagens
+              <a href="{{ url_for('moto_imagens', moto_id=m.id) }}" class="btn btn-sm btn-info me-1">
+                <i class="fas fa-images"></i> Imagens
+              </a>
+              <a href="{{ url_for('editar_moto', id=m.id) }}" class="btn btn-sm btn-warning">
+                <i class="fas fa-edit"></i> Editar
               </a>
             </td>
           </tr>

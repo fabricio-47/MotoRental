@@ -28,6 +28,15 @@ ALLOWED_CONTRACT_EXTENSIONS = {'pdf'}
 def allowed_contract(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_CONTRACT_EXTENSIONS
 
+# 🔹 Configuração para upload de habilitação dos clientes (pdf/jpg/png)
+UPLOAD_FOLDER_HABILITACOES = os.path.join(os.getcwd(), "uploads_habilitacoes")
+os.makedirs(UPLOAD_FOLDER_HABILITACOES, exist_ok=True)
+app.config["UPLOAD_FOLDER_HABILITACOES"] = UPLOAD_FOLDER_HABILITACOES
+ALLOWED_HAB_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
+def allowed_habilitacao(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_HAB_EXTENSIONS
+
 # Inicializa funções de banco
 init_app(app)
 
@@ -118,6 +127,35 @@ def motos():
     return render_template("motos.html", motos=motos)
 
 
+# EDITAR MOTO
+@app.route("/motos/<int:id>/editar", methods=["GET", "POST"])
+def editar_moto(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        placa = request.form["placa"]
+        modelo = request.form["modelo"]
+        ano = request.form["ano"]
+        
+        cur.execute("""
+            UPDATE motos
+            SET placa=%s, modelo=%s, ano=%s
+            WHERE id=%s
+        """, (placa, modelo, ano, id))
+        conn.commit()
+        cur.close()
+        
+        flash("Moto atualizada com sucesso!", "success")
+        return redirect(url_for("motos"))
+
+    cur.execute("SELECT * FROM motos WHERE id=%s", (id,))
+    moto = cur.fetchone()
+    cur.close()
+    return render_template("editar_moto.html", moto=moto)
+
+
+# CLIENTES (cadastro e listagem)
 @app.route("/clientes", methods=["GET", "POST"])
 def clientes():
     conn = get_db()
@@ -143,6 +181,93 @@ def clientes():
     clientes = cur.fetchall()
     cur.close()
     return render_template("clientes.html", clientes=clientes)
+
+
+# EDITAR CLIENTE
+@app.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
+def editar_cliente(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        nome = request.form["nome"]
+        email = request.form["email"]
+        telefone = request.form["telefone"]
+        cpf = request.form.get("cpf")
+        endereco = request.form.get("endereco")
+        data_nascimento = request.form.get("data_nascimento")
+        observacoes = request.form.get("observacoes")
+
+        cur.execute("""
+            UPDATE clientes
+            SET nome=%s, email=%s, telefone=%s, cpf=%s, endereco=%s, data_nascimento=%s, observacoes=%s
+            WHERE id=%s
+        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, id))
+        conn.commit()
+        cur.close()
+
+        flash("Cliente atualizado com sucesso!", "success")
+        return redirect(url_for("clientes"))
+
+    cur.execute("SELECT * FROM clientes WHERE id=%s", (id,))
+    cliente = cur.fetchone()
+    cur.close()
+    return render_template("editar_cliente.html", cliente=cliente)
+
+
+# HABILITAÇÃO DO CLIENTE (upload + visualização/substituição)
+@app.route("/clientes/<int:id>/habilitacao", methods=["GET", "POST"])
+def cliente_habilitacao(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        file = request.files.get("habilitacao")
+        if file and allowed_habilitacao(file.filename):
+            # Deleta antiga (se houver)
+            cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
+            antigo = cur.fetchone()
+            if antigo and antigo["habilitacao_arquivo"]:
+                old_path = os.path.join(app.config["UPLOAD_FOLDER_HABILITACOES"], antigo["habilitacao_arquivo"])
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # Salva nova
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config["UPLOAD_FOLDER_HABILITACOES"], filename)
+            file.save(file_path)
+
+            cur.execute("UPDATE clientes SET habilitacao_arquivo=%s WHERE id=%s", (filename, id))
+            conn.commit()
+            flash("Habilitação anexada com sucesso!", "success")
+
+    cur.execute("SELECT id, nome, habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
+    cliente = cur.fetchone()
+    cur.close()
+
+    return render_template("cliente_habilitacao.html", cliente=cliente)
+
+
+# EXCLUIR HABILITAÇÃO DO CLIENTE
+@app.route("/clientes/<int:id>/habilitacao/excluir", methods=["POST"])
+def excluir_habilitacao(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
+    cliente = cur.fetchone()
+
+    if cliente and cliente["habilitacao_arquivo"]:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER_HABILITACOES"], cliente["habilitacao_arquivo"])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+        cur.execute("UPDATE clientes SET habilitacao_arquivo=NULL WHERE id=%s", (id,))
+        conn.commit()
+
+    cur.close()
+    flash("Habilitação removida com sucesso!", "info")
+    return redirect(url_for("cliente_habilitacao", id=id))
 
 
 # IMAGENS DAS MOTOS
@@ -195,7 +320,7 @@ def excluir_imagem_moto(moto_id, imagem_id):
     return redirect(url_for('moto_imagens', moto_id=moto_id))
 
 
-# LOCAÇÕES (ATUALIZADA COM OBSERVAÇÕES + CONTRATO PDF)
+# LOCAÇÕES
 @app.route("/locacoes", methods=["GET", "POST"])
 def locacoes():
     conn = get_db()
@@ -207,7 +332,7 @@ def locacoes():
         data_inicio = request.form["data_inicio"]
         observacoes = request.form.get("observacoes")
 
-        # 🔹 Upload do contrato PDF
+        # Upload do contrato PDF
         contrato_pdf = None
         if "contrato_pdf" in request.files:
             file = request.files["contrato_pdf"]
@@ -217,18 +342,15 @@ def locacoes():
                 file.save(contrato_path)
                 contrato_pdf = filename
 
-        # cria locação
         cur.execute("""
             INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf) 
             VALUES (%s,%s,%s,%s,%s)
         """, (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf))
 
-        # marca moto como não disponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
         return redirect(url_for("locacoes"))
 
-    # 🔹 locações ativas (inclui observações e contrato)
     cur.execute("""SELECT l.id, 
                           c.nome, 
                           m.modelo, 
@@ -244,16 +366,48 @@ def locacoes():
                    WHERE l.cancelado = FALSE""")
     locacoes = cur.fetchall()
 
-    # 🔹 clientes
     cur.execute("SELECT id, nome FROM clientes")
     clientes = cur.fetchall()
 
-    # 🔹 motos disponíveis
     cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel=TRUE")
     motos = cur.fetchall()
 
     cur.close()
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
+
+
+# EDITAR LOCAÇÃO
+@app.route("/locacoes/<int:id>/editar", methods=["GET", "POST"])
+def editar_locacao(id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        data_inicio = request.form["data_inicio"]
+        data_fim = request.form.get("data_fim")
+        observacoes = request.form.get("observacoes")
+
+        cur.execute("""
+            UPDATE locacoes
+            SET data_inicio=%s, data_fim=%s, observacoes=%s
+            WHERE id=%s
+        """, (data_inicio, data_fim, observacoes, id))
+        conn.commit()
+        cur.close()
+
+        flash("Locação atualizada com sucesso!", "success")
+        return redirect(url_for("locacoes"))
+
+    cur.execute("""
+        SELECT l.*, c.nome as cliente_nome, m.modelo as moto_modelo, m.placa as moto_placa
+        FROM locacoes l
+        JOIN clientes c ON l.cliente_id = c.id
+        JOIN motos m ON l.moto_id = m.id
+        WHERE l.id=%s
+    """, (id,))
+    locacao = cur.fetchone()
+    cur.close()
+    return render_template("editar_locacao.html", locacao=locacao)
 
 
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
@@ -272,7 +426,8 @@ def cancelar_locacao(id):
     cur.close()
     return redirect(url_for("locacoes"))
 
-    # SERVIÇOS NAS LOCAÇÕES
+
+# SERVIÇOS NAS LOCAÇÕES
 @app.route("/locacoes/<int:locacao_id>/servicos", methods=["GET", "POST"])
 def servicos_locacao(locacao_id):
     conn = get_db()
@@ -287,7 +442,6 @@ def servicos_locacao(locacao_id):
         """, (locacao_id, descricao, valor))
         conn.commit()
 
-    # Buscar dados da locação e cliente
     cur.execute("""
         SELECT l.id, c.nome, m.modelo, m.placa
         FROM locacoes l
@@ -297,7 +451,6 @@ def servicos_locacao(locacao_id):
     """, (locacao_id,))
     locacao = cur.fetchone()
 
-    # Buscar serviços dessa locação
     cur.execute("""
         SELECT id, descricao, valor, data_servico
         FROM servicos_locacao
@@ -310,16 +463,18 @@ def servicos_locacao(locacao_id):
     return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
 
 
-# Servir imagens (rota pública)
+# ROTAS DE SERVIR ARQUIVOS
 @app.route('/uploads_motos/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_MOTOS'], filename)
 
-
-# 🔹 Servir contratos PDF (rota pública)
 @app.route('/uploads_contratos/<path:filename>')
 def uploaded_contract(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_CONTRATOS'], filename)
+
+@app.route('/uploads_habilitacoes/<path:filename>')
+def uploaded_habilitacao(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER_HABILITACOES'], filename)
 
 
 # Rodar localmente

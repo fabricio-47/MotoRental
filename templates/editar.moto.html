@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Editar Moto: {{ moto.modelo }} - {{ moto.placa }}</h2>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Placa</label>
+          <input type="text" name="placa" class="form-control" value="{{ moto.placa }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Modelo</label>
+          <input type="text" name="modelo" class="form-control" value="{{ moto.modelo }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Ano</label>
+          <input type="number" name="ano" class="form-control" value="{{ moto.ano }}" required>
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <button class="btn btn-success">
+          <i class="fas fa-save"></i> Salvar Alterações
+        </button>
+        <a href="{{ url_for('motos') }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

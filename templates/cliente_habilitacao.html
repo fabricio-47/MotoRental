@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Habilitação de {{ cliente.nome }}</h2>
+
+<!-- Upload da habilitação -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Anexar/Alterar Habilitação</h5>
+    <form method="post" enctype="multipart/form-data">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <input type="file" name="habilitacao" class="form-control"
+                 accept=".pdf,.jpg,.jpeg,.png" required>
+          <small class="text-muted">Permitido: PDF, JPG, JPEG, PNG</small>
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-primary w-100">Upload</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Habilitação existente -->
+{% if cliente.habilitacao_arquivo %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Arquivo Atual</h5>
+    
+    <!-- Exibir PDF ou Imagem -->
+    <div class="mb-3">
+      {% if cliente.habilitacao_arquivo.endswith('.pdf') %}
+        <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}" 
+           target="_blank" class="btn btn-outline-primary">
+           <i class="fas fa-file-pdf"></i> Ver PDF
+        </a>
+      {% else %}
+        <img src="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}" 
+             class="img-fluid rounded" style="max-width:400px; border: 1px solid #ddd;">
+      {% endif %}
+    </div>
+
+    <!-- Botão para excluir -->
+    <form method="post" action="{{ url_for('excluir_habilitacao', id=cliente.id) }}" 
+          onsubmit="return confirm('Tem certeza que deseja excluir a habilitação atual?')" 
+          class="d-inline">
+      <button type="submit" class="btn btn-danger">
+        <i class="fas fa-trash"></i> Excluir Habilitação
+      </button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i> Nenhuma habilitação anexada ainda.
+</div>
+{% endif %}
+
+<!-- Botão voltar -->
+<div class="mt-4">
+  <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Voltar para Clientes
+  </a>
+</div>
+{% endblock %}

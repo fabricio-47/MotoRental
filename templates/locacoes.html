@@ -7,7 +7,6 @@
 <div class="card mb-4 shadow-sm">
   <div class="card-body">
     <h5 class="card-title">Nova Locação</h5>
-    <!-- Adicionado enctype para upload de arquivo -->
     <form method="post" enctype="multipart/form-data">
       <div class="row g-3 align-items-end">
         <div class="col-md-4">
@@ -35,10 +34,12 @@
         <div class="col-md-1">
           <button class="btn btn-success w-100">Salvar</button>
         </div>
+
         <div class="col-md-12">
           <label class="form-label">Observações</label>
           <textarea name="observacoes" class="form-control" rows="3" placeholder="Ex.: estado da moto, caução, km inicial, observações do cliente..."></textarea>
         </div>
+
         <div class="col-md-12">
           <label class="form-label">Contrato (PDF)</label>
           <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
@@ -63,7 +64,7 @@
             <th>Data Fim</th>
             <th>Observações</th>
             <th>Contrato</th>
-            <th>Ações</th>
+            <th style="width: 260px;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -86,17 +87,19 @@
               {% endif %}
             </td>
             <td>
-  <a href="{{ url_for('servicos_locacao', locacao_id=l.id) }}" class="btn btn-sm btn-info me-1">
-    Serviços
-  </a>
-
-  <form action="{{ url_for('cancelar_locacao', id=l.id) }}" method="post" style="display:inline;">
-    <button type="submit" class="btn btn-sm btn-danger"
-            onclick="return confirm('Tem certeza que deseja cancelar esta locação?')">
-      Cancelar
-    </button>
-  </form>
-</td>
+              <a href="{{ url_for('servicos_locacao', locacao_id=l.id) }}" class="btn btn-sm btn-info me-1">
+                Serviços
+              </a>
+              <a href="{{ url_for('editar_locacao', id=l.id) }}" class="btn btn-sm btn-warning me-1">
+                Editar
+              </a>
+              <form action="{{ url_for('cancelar_locacao', id=l.id) }}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('Tem certeza que deseja cancelar esta locação?')">
+                  Cancelar
+                </button>
+              </form>
+            </td>
           </tr>
           {% else %}
           <tr>
