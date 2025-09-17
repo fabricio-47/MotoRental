@@ -1,21 +1,50 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+
 {% block content %}
-<h2>Documento da Moto - {{ moto.modelo }} ({{ moto.placa }})</h2>
+<div class="container mt-4">
+  <h2 class="mb-4">
+    Documento da Moto - {{ moto.modelo }} ({{ moto.placa }})
+  </h2>
 
-{% if moto.documento_arquivo %}
-    <p><a href="{{ url_for('uploaded_documento', filename=moto.documento_arquivo) }}" target="_blank">📄 Ver Documento</a></p>
-    <form method="post" action="{{ url_for('excluir_documento_moto', moto_id=moto.id) }}">
-        <button type="submit" class="btn btn-danger">Excluir Documento</button>
-    </form>
-{% else %}
-    <p>Nenhum documento anexado.</p>
-{% endif %}
+  <div class="card shadow-sm">
+    <div class="card-body">
 
-<form method="post" enctype="multipart/form-data">
-    <div class="form-group">
-        <label for="documento">Enviar novo Documento (PDF/Imagem):</label>
-        <input type="file" name="documento" class="form-control">
+      <!-- Documento Existente -->
+      {% if moto.documento_arquivo %}
+        <p>
+          Documento atual:
+          <a href="{{ url_for('uploaded_documento', filename=moto.documento_arquivo) }}" 
+             target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-file-alt"></i> Ver Documento
+          </a>
+        </p>
+        <form method="post" action="{{ url_for('excluir_documento_moto', moto_id=moto.id) }}">
+          <button type="submit" class="btn btn-danger btn-sm">
+            <i class="fas fa-trash"></i> Excluir Documento
+          </button>
+        </form>
+      {% else %}
+        <p class="text-muted">Nenhum documento anexado para esta moto.</p>
+      {% endif %}
+
+      <hr>
+
+      <!-- Upload de Documento -->
+      <h5>Anexar/Atualizar Documento</h5>
+      <form method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label">Selecionar Documento (PDF/JPG/PNG)</label>
+          <input type="file" name="documento" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-upload"></i> Enviar Documento
+        </button>
+        <a href="{{ url_for('motos') }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+      </form>
+
     </div>
-    <button type="submit" class="btn btn-primary">Enviar</button>
-</form>
+  </div>
+</div>
 {% endblock %}

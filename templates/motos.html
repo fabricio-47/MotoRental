@@ -43,7 +43,7 @@
             <th>Modelo</th>
             <th>Ano</th>
             <th>Disponibilidade</th>
-            <th style="width: 220px;">Ações</th>
+            <th style="width: 280px;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -62,6 +62,9 @@
             <td>
               <a href="{{ url_for('moto_imagens', moto_id=m.id) }}" class="btn btn-sm btn-info me-1">
                 <i class="fas fa-images"></i> Imagens
+              </a>
+              <a href="{{ url_for('moto_documento', moto_id=m.id) }}" class="btn btn-sm btn-secondary me-1">
+                <i class="fas fa-file-alt"></i> Documento
               </a>
               <a href="{{ url_for('editar_moto', id=m.id) }}" class="btn btn-sm btn-warning">
                 <i class="fas fa-edit"></i> Editar
