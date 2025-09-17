@@ -80,7 +80,8 @@ CREATE TABLE servicos_locacao (
     locacao_id INTEGER NOT NULL REFERENCES locacoes (id) ON DELETE CASCADE,
     descricao TEXT NOT NULL,               -- Ex.: troca de óleo, manutenção, multa
     valor DECIMAL(10,2) DEFAULT 0,         -- custo ou taxa
-    data_servico DATE DEFAULT CURRENT_DATE -- data do serviço
+    data_servico DATE DEFAULT CURRENT_DATE, -- data do serviço
+    quilometragem INTEGER
 );
 
 -- ==========================================================

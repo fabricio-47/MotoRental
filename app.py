@@ -562,10 +562,12 @@ def servicos_locacao(locacao_id):
     if request.method == "POST":
         descricao = request.form["descricao"]
         valor = request.form.get("valor") or 0
+        quilometragem = request.form.get("quilometragem") or None
+
         cur.execute("""
-            INSERT INTO servicos_locacao (locacao_id, descricao, valor) 
-            VALUES (%s, %s, %s)
-        """, (locacao_id, descricao, valor))
+            INSERT INTO servicos_locacao (locacao_id, descricao, valor, quilometragem) 
+            VALUES (%s, %s, %s, %s)
+        """, (locacao_id, descricao, valor, quilometragem))
         conn.commit()
 
     cur.execute("""
@@ -578,7 +580,7 @@ def servicos_locacao(locacao_id):
     locacao = cur.fetchone()
 
     cur.execute("""
-        SELECT id, descricao, valor, data_servico
+        SELECT id, descricao, valor, data_servico, quilometragem
         FROM servicos_locacao
         WHERE locacao_id = %s
         ORDER BY data_servico DESC
@@ -587,7 +589,6 @@ def servicos_locacao(locacao_id):
 
     cur.close()
     return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
-
 
 # ROTAS DE SERVIR ARQUIVOS
 @app.route('/uploads_motos/<path:filename>')
@@ -605,6 +606,61 @@ def uploaded_habilitacao(filename):
 @app.route('/uploads_documentos_motos/<path:filename>')
 def uploaded_documento(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_DOCUMENTOS'], filename)
+
+# ---------- EXCLUIR CLIENTE ----------
+@app.route("/clientes/<int:id>/excluir", methods=["POST"])
+def excluir_cliente(id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # remover habilitação se houver
+    cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
+    cliente = cur.fetchone()
+    if cliente and cliente["habilitacao_arquivo"]:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER_HABILITACOES"], cliente["habilitacao_arquivo"])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+    # excluir cliente
+    cur.execute("DELETE FROM clientes WHERE id=%s", (id,))
+    conn.commit()
+    cur.close()
+
+    flash("Cliente excluído com sucesso!", "info")
+    return redirect(url_for("clientes"))
+
+
+# ---------- EXCLUIR MOTO ----------
+@app.route("/motos/<int:id>/excluir", methods=["POST"])
+def excluir_moto(id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # remover imagens relacionadas
+    cur.execute("SELECT arquivo FROM moto_imagens WHERE moto_id=%s", (id,))
+    imagens = cur.fetchall()
+    for img in imagens:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], img["arquivo"])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+    cur.execute("DELETE FROM moto_imagens WHERE moto_id=%s", (id,))
+
+    # remover documento da moto, se houver
+    cur.execute("SELECT documento_arquivo FROM motos WHERE id=%s", (id,))
+    moto = cur.fetchone()
+    if moto and moto["documento_arquivo"]:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], moto["documento_arquivo"])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+    # excluir moto
+    cur.execute("DELETE FROM motos WHERE id=%s", (id,))
+    conn.commit()
+    cur.close()
+
+    flash("Moto excluída com sucesso!", "info")
+    return redirect(url_for("motos"))
 
 
 # ---------- Run ----------
