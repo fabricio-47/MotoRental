@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+import psycopg2.extras
 from database import get_db, init_app
 
 app = Flask(__name__)
@@ -54,7 +55,7 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if request.method == "POST":
         email = request.form["email"]
         senha = request.form["senha"]
@@ -83,7 +84,7 @@ def logout():
 @app.route("/dashboard")
 def dashboard():
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cur.execute("SELECT COUNT(*) AS total FROM clientes")
     total_clientes = cur.fetchone()["total"]
@@ -111,7 +112,7 @@ def dashboard():
 @app.route("/motos", methods=["GET", "POST"])
 def motos():
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if request.method == "POST":
         placa = request.form["placa"]
         modelo = request.form["modelo"]
@@ -131,7 +132,7 @@ def motos():
 @app.route("/motos/<int:id>/editar", methods=["GET", "POST"])
 def editar_moto(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         placa = request.form["placa"]
@@ -159,7 +160,7 @@ def editar_moto(id):
 @app.route("/clientes", methods=["GET", "POST"])
 def clientes():
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if request.method == "POST":
         nome = request.form["nome"]
         email = request.form["email"]
@@ -187,7 +188,7 @@ def clientes():
 @app.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
 def editar_cliente(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         nome = request.form["nome"]
@@ -215,11 +216,11 @@ def editar_cliente(id):
     return render_template("editar_cliente.html", cliente=cliente)
 
 
-# HABILITAÇÃO DO CLIENTE (upload + visualização/substituição)
+# HABILITAÇÃO DO CLIENTE
 @app.route("/clientes/<int:id>/habilitacao", methods=["GET", "POST"])
 def cliente_habilitacao(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         file = request.files.get("habilitacao")
@@ -252,7 +253,7 @@ def cliente_habilitacao(id):
 @app.route("/clientes/<int:id>/habilitacao/excluir", methods=["POST"])
 def excluir_habilitacao(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
     cliente = cur.fetchone()
@@ -274,7 +275,7 @@ def excluir_habilitacao(id):
 @app.route("/motos/<int:moto_id>/imagens", methods=["GET", "POST"])
 def moto_imagens(moto_id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         if "imagem" in request.files:
@@ -303,7 +304,7 @@ def moto_imagens(moto_id):
 @app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])
 def excluir_imagem_moto(moto_id, imagem_id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cur.execute("SELECT arquivo FROM moto_imagens WHERE id = %s AND moto_id = %s", (imagem_id, moto_id))
     imagem = cur.fetchone()
@@ -324,7 +325,7 @@ def excluir_imagem_moto(moto_id, imagem_id):
 @app.route("/locacoes", methods=["GET", "POST"])
 def locacoes():
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         cliente_id = request.form["cliente_id"]
@@ -376,25 +377,54 @@ def locacoes():
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
 
-# EDITAR LOCAÇÃO
+# EDITAR LOCAÇÃO (com contrato PDF)
 @app.route("/locacoes/<int:id>/editar", methods=["GET", "POST"])
 def editar_locacao(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         data_inicio = request.form["data_inicio"]
         data_fim = request.form.get("data_fim")
         observacoes = request.form.get("observacoes")
 
-        cur.execute("""
-            UPDATE locacoes
-            SET data_inicio=%s, data_fim=%s, observacoes=%s
-            WHERE id=%s
-        """, (data_inicio, data_fim, observacoes, id))
+        contrato_pdf = None
+        if "contrato_pdf" in request.files:
+            file = request.files["contrato_pdf"]
+            if file and allowed_contract(file.filename):
+                filename = secure_filename(file.filename)
+                contrato_path = os.path.join(app.config["UPLOAD_FOLDER_CONTRATOS"], filename)
+                file.save(contrato_path)
+                contrato_pdf = filename
+
+                # Deleta contrato antigo
+                cur.execute("SELECT contrato_pdf FROM locacoes WHERE id=%s", (id,))
+                antigo = cur.fetchone()
+                if antigo and antigo["contrato_pdf"]:
+                    old_path = os.path.join(app.config["UPLOAD_FOLDER_CONTRATOS"], antigo["contrato_pdf"])
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+
+                cur.execute("""
+                    UPDATE locacoes
+                    SET data_inicio=%s, data_fim=%s, observacoes=%s, contrato_pdf=%s
+                    WHERE id=%s
+                """, (data_inicio, data_fim, observacoes, contrato_pdf, id))
+            else:
+                cur.execute("""
+                    UPDATE locacoes
+                    SET data_inicio=%s, data_fim=%s, observacoes=%s
+                    WHERE id=%s
+                """, (data_inicio, data_fim, observacoes, id))
+        else:
+            cur.execute("""
+                UPDATE locacoes
+                SET data_inicio=%s, data_fim=%s, observacoes=%s
+                WHERE id=%s
+            """, (data_inicio, data_fim, observacoes, id))
+
         conn.commit()
         cur.close()
-
         flash("Locação atualizada com sucesso!", "success")
         return redirect(url_for("locacoes"))
 
@@ -407,13 +437,18 @@ def editar_locacao(id):
     """, (id,))
     locacao = cur.fetchone()
     cur.close()
+
+    if not locacao:
+        flash("Locação não encontrada.", "warning")
+        return redirect(url_for("locacoes"))
+
     return render_template("editar_locacao.html", locacao=locacao)
 
 
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
 def cancelar_locacao(id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cur.execute("SELECT moto_id FROM locacoes WHERE id = %s", (id,))
     locacao = cur.fetchone()
@@ -431,7 +466,7 @@ def cancelar_locacao(id):
 @app.route("/locacoes/<int:locacao_id>/servicos", methods=["GET", "POST"])
 def servicos_locacao(locacao_id):
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if request.method == "POST":
         descricao = request.form["descricao"]
