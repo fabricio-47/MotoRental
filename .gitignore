@@ -34,3 +34,8 @@ Thumbs.db
 # Credenciais/segredos
 .env
 .env.*
+
+# Pastas de uploads
+uploads_motos/
+uploads_contratos/
+uploads_habilitacoes/
