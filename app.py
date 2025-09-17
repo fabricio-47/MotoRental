@@ -320,6 +320,67 @@ def excluir_imagem_moto(moto_id, imagem_id):
     cur.close()
     return redirect(url_for('moto_imagens', moto_id=moto_id))
 
+# UPLOAD DOCUMENTO DA MOTO
+UPLOAD_FOLDER_DOCUMENTOS = os.path.join(os.getcwd(), "uploads_documentos_motos")
+os.makedirs(UPLOAD_FOLDER_DOCUMENTOS, exist_ok=True)
+app.config["UPLOAD_FOLDER_DOCUMENTOS"] = UPLOAD_FOLDER_DOCUMENTOS
+ALLOWED_DOC_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
+def allowed_documento(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
+
+@app.route("/motos/<int:moto_id>/documento", methods=["GET", "POST"])
+def moto_documento(moto_id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    if request.method == "POST":
+        file = request.files.get("documento")
+        if file and allowed_documento(file.filename):
+            # Deleta antigo (se houver)
+            cur.execute("SELECT documento_arquivo FROM motos WHERE id=%s", (moto_id,))
+            antigo = cur.fetchone()
+            if antigo and antigo["documento_arquivo"]:
+                old_path = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], antigo["documento_arquivo"])
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # Salva novo
+            filename = secure_filename(file.filename)
+            path = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], filename)
+            file.save(path)
+
+            cur.execute("UPDATE motos SET documento_arquivo=%s WHERE id=%s", (filename, moto_id))
+            conn.commit()
+            flash("Documento da moto anexado com sucesso!", "success")
+
+    cur.execute("SELECT * FROM motos WHERE id=%s", (moto_id,))
+    moto = cur.fetchone()
+    cur.close()
+
+    return render_template("moto_documento.html", moto=moto)
+
+
+@app.route("/motos/<int:moto_id>/documento/excluir", methods=["POST"])
+def excluir_documento_moto(moto_id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("SELECT documento_arquivo FROM motos WHERE id=%s", (moto_id,))
+    moto = cur.fetchone()
+
+    if moto and moto["documento_arquivo"]:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], moto["documento_arquivo"])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+        cur.execute("UPDATE motos SET documento_arquivo=NULL WHERE id=%s", (moto_id,))
+        conn.commit()
+
+    cur.close()
+    flash("Documento da moto removido com sucesso!", "info")
+    return redirect(url_for("moto_documento", moto_id=moto_id))
+
 
 # LOCAÇÕES
 @app.route("/locacoes", methods=["GET", "POST"])
@@ -375,6 +436,32 @@ def locacoes():
 
     cur.close()
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
+
+# ---------- LOCAÇÕES CANCELADAS ----------
+@app.route("/locacoes/canceladas")
+def locacoes_canceladas():
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("""
+        SELECT l.id, 
+               c.nome AS cliente_nome, 
+               m.modelo AS moto_modelo, 
+               m.placa AS moto_placa,
+               l.data_inicio, 
+               l.data_fim, 
+               l.observacoes,
+               l.contrato_pdf
+        FROM locacoes l
+        JOIN clientes c ON l.cliente_id = c.id
+        JOIN motos m ON l.moto_id = m.id
+        WHERE l.cancelado = TRUE
+        ORDER BY l.data_inicio DESC
+    """)
+    canceladas = cur.fetchall()
+    cur.close()
+
+    return render_template("locacoes_canceladas.html", canceladas=canceladas)
 
 
 # EDITAR LOCAÇÃO (com contrato PDF)
@@ -510,6 +597,10 @@ def uploaded_contract(filename):
 @app.route('/uploads_habilitacoes/<path:filename>')
 def uploaded_habilitacao(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER_HABILITACOES'], filename)
+
+@app.route('/uploads_documentos_motos/<path:filename>')
+def uploaded_documento(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER_DOCUMENTOS'], filename)
 
 
 # ---------- Run ----------

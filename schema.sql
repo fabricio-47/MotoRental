@@ -32,6 +32,7 @@ CREATE TABLE motos (
     ano INTEGER NOT NULL,
     disponivel BOOLEAN DEFAULT TRUE,
     imagem VARCHAR(255)                    -- 🚀 imagem principal da moto
+    documento_arquivo VARCHAR(255)  --CAMPO PARA GUARDAR PDF
 );
 
 -- ==========================================================

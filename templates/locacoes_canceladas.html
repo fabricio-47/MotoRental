@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>🔴 Locações Canceladas</h2>
+
+    {% if canceladas %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Moto</th>
+                    <th>Placa</th>
+                    <th>Data Início</th>
+                    <th>Data Fim</th>
+                    <th>Observações</th>
+                    <th>Contrato</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loc in canceladas %}
+                <tr>
+                    <td>{{ loc.cliente_nome }}</td>
+                    <td>{{ loc.moto_modelo }}</td>
+                    <td>{{ loc.moto_placa }}</td>
+                    <td>{{ loc.data_inicio }}</td>
+                    <td>{{ loc.data_fim or "-" }}</td>
+                    <td>{{ loc.observacoes or "" }}</td>
+                    <td>
+                        {% if loc.contrato_pdf %}
+                            <a href="{{ url_for('uploaded_contract', filename=loc.contrato_pdf) }}" target="_blank">📄 Ver</a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Nenhuma locação cancelada encontrada ✅</p>
+    {% endif %}
+</div>
+{% endblock %}
