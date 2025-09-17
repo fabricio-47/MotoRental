@@ -11,8 +11,11 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
 app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL")  # Postgres no Render
 
+# 🔒 Base do Render Disk (persistente)
+BASE_UPLOAD = "/var/data"
+
 # 🔹 Configuração para uploads de imagens de motos
-UPLOAD_FOLDER_MOTOS = os.path.join(os.getcwd(), "uploads_motos")
+UPLOAD_FOLDER_MOTOS = os.path.join(BASE_UPLOAD, "uploads_motos")
 os.makedirs(UPLOAD_FOLDER_MOTOS, exist_ok=True)
 app.config["UPLOAD_FOLDER_MOTOS"] = UPLOAD_FOLDER_MOTOS
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -21,7 +24,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # 🔹 Configuração para upload de contratos (PDF)
-UPLOAD_FOLDER_CONTRATOS = os.path.join(os.getcwd(), "uploads_contratos")
+UPLOAD_FOLDER_CONTRATOS = os.path.join(BASE_UPLOAD, "uploads_contratos")
 os.makedirs(UPLOAD_FOLDER_CONTRATOS, exist_ok=True)
 app.config["UPLOAD_FOLDER_CONTRATOS"] = UPLOAD_FOLDER_CONTRATOS
 ALLOWED_CONTRACT_EXTENSIONS = {'pdf'}
@@ -30,13 +33,22 @@ def allowed_contract(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_CONTRACT_EXTENSIONS
 
 # 🔹 Configuração para upload de habilitação dos clientes (pdf/jpg/png)
-UPLOAD_FOLDER_HABILITACOES = os.path.join(os.getcwd(), "uploads_habilitacoes")
+UPLOAD_FOLDER_HABILITACOES = os.path.join(BASE_UPLOAD, "uploads_habilitacoes")
 os.makedirs(UPLOAD_FOLDER_HABILITACOES, exist_ok=True)
 app.config["UPLOAD_FOLDER_HABILITACOES"] = UPLOAD_FOLDER_HABILITACOES
 ALLOWED_HAB_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
 def allowed_habilitacao(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_HAB_EXTENSIONS
+
+# 🔹 Configuração para upload de documentos das motos
+UPLOAD_FOLDER_DOCUMENTOS = os.path.join(BASE_UPLOAD, "uploads_documentos_motos")
+os.makedirs(UPLOAD_FOLDER_DOCUMENTOS, exist_ok=True)
+app.config["UPLOAD_FOLDER_DOCUMENTOS"] = UPLOAD_FOLDER_DOCUMENTOS
+ALLOWED_DOC_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
+def allowed_documento(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
 
 # Inicializa funções de banco
 init_app(app)
@@ -320,14 +332,6 @@ def excluir_imagem_moto(moto_id, imagem_id):
     cur.close()
     return redirect(url_for('moto_imagens', moto_id=moto_id))
 
-# UPLOAD DOCUMENTO DA MOTO
-UPLOAD_FOLDER_DOCUMENTOS = os.path.join(os.getcwd(), "uploads_documentos_motos")
-os.makedirs(UPLOAD_FOLDER_DOCUMENTOS, exist_ok=True)
-app.config["UPLOAD_FOLDER_DOCUMENTOS"] = UPLOAD_FOLDER_DOCUMENTOS
-ALLOWED_DOC_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
-
-def allowed_documento(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
 
 @app.route("/motos/<int:moto_id>/documento", methods=["GET", "POST"])
 def moto_documento(moto_id):

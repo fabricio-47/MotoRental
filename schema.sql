@@ -1,6 +1,6 @@
 -- ==========================================================
 -- SCHEMA: Sistema de aluguel de motos
--- OBS: Esse script APAGA todas as tabelas (modo testes/dev)
+-- OBS: Execute uma única vez em produção. Depois use ALTER TABLE.
 -- ==========================================================
 
 -- Remove tabelas na ordem certa (dependências primeiro)
@@ -31,9 +31,13 @@ CREATE TABLE motos (
     modelo TEXT NOT NULL,
     ano INTEGER NOT NULL,
     disponivel BOOLEAN DEFAULT TRUE,
-    imagem VARCHAR(255),                    -- 🚀 imagem principal da moto
-    documento_arquivo VARCHAR(255) --CAMPO PARA GUARDAR PDF
+    imagem VARCHAR(255),
+    -- Arquivo do documento da moto (CRLV, etc.)
+    documento_arquivo VARCHAR(255)
 );
+
+-- Índice útil para listagem de disponíveis
+CREATE INDEX idx_motos_disponivel ON motos(disponivel);
 
 -- ==========================================================
 -- Clientes
@@ -47,7 +51,8 @@ CREATE TABLE clientes (
     endereco TEXT,
     data_nascimento DATE,
     observacoes TEXT,
-    habilitacao_arquivo VARCHAR(255)       -- 🚀 arquivo da CNH (imagem/pdf)
+    -- Arquivo da CNH do cliente (imagem/pdf)
+    habilitacao_arquivo VARCHAR(255)
 );
 
 -- ==========================================================
@@ -63,6 +68,9 @@ CREATE TABLE locacoes (
     observacoes TEXT,                      -- anotações internas
     contrato_pdf VARCHAR(255)              -- contrato da locação (PDF)
 );
+
+-- Índice útil para listagem de canceladas/ativas
+CREATE INDEX idx_locacoes_cancelado ON locacoes(cancelado);
 
 -- ==========================================================
 -- Serviços feitos durante uma locação
