@@ -52,7 +52,8 @@ CREATE TABLE clientes (
     data_nascimento DATE,
     observacoes TEXT,
     -- Arquivo da CNH do cliente (imagem/pdf)
-    habilitacao_arquivo VARCHAR(255)
+    habilitacao_arquivo VARCHAR(255),
+    asaas_id VARCHAR(50)
 );
 
 -- ==========================================================
@@ -66,7 +67,8 @@ CREATE TABLE locacoes (
     data_fim DATE,
     cancelado BOOLEAN DEFAULT FALSE,       -- se TRUE = locação cancelada
     observacoes TEXT,                      -- anotações internas
-    contrato_pdf VARCHAR(255)              -- contrato da locação (PDF)
+    contrato_pdf VARCHAR(255),              -- contrato da locação (PDF)
+    boleto_url TEXT
 );
 
 -- Índice útil para listagem de canceladas/ativas

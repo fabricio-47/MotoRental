@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -49,6 +50,32 @@ ALLOWED_DOC_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
 def allowed_documento(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
+
+# ---------------- ASAAS ----------------
+ASAAS_API_KEY = os.environ.get("ASAAS_API_KEY")
+ASAAS_BASE_URL = os.environ.get("ASAAS_BASE_URL", "https://sandbox.asaas.com/api/v3")
+
+asaas_headers = {
+    "accept": "application/json",
+    "content-type": "application/json",
+    "access_token": ASAAS_API_KEY
+}
+
+def criar_cliente_asaas(nome, email, cpf, telefone):
+    payload = {"name": nome, "email": email, "cpfCnpj": cpf, "mobilePhone": telefone}
+    r = requests.post(f"{ASAAS_BASE_URL}/customers", headers=asaas_headers, json=payload)
+    return r.json()
+
+def criar_cobranca_asaas(customer_id, valor, vencimento, descricao="Locação de Moto"):
+    payload = {
+        "customer": customer_id,
+        "billingType": "BOLETO",
+        "dueDate": vencimento,
+        "value": valor,
+        "description": descricao
+    }
+    r = requests.post(f"{ASAAS_BASE_URL}/payments", headers=asaas_headers, json=payload)
+    return r.json()
 
 # Inicializa funções de banco
 init_app(app)
@@ -182,11 +209,15 @@ def clientes():
         data_nascimento = request.form.get("data_nascimento")
         observacoes = request.form.get("observacoes")
 
+        # 🔹 Cria cliente no Asaas
+        asaas_cliente = criar_cliente_asaas(nome, email, cpf, telefone)
+        asaas_id = asaas_cliente.get("id")
+
         cur.execute("""
             INSERT INTO clientes 
-                (nome, email, telefone, cpf, endereco, data_nascimento, observacoes) 
-            VALUES (%s,%s,%s,%s,%s,%s,%s)
-        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes))
+                (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, asaas_id) 
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, asaas_id))
         conn.commit()
         return redirect(url_for("clientes"))
 
@@ -397,6 +428,7 @@ def locacoes():
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
         observacoes = request.form.get("observacoes")
+        valor = request.form.get("valor") or 0
 
         # Upload do contrato PDF
         contrato_pdf = None
@@ -408,10 +440,18 @@ def locacoes():
                 file.save(contrato_path)
                 contrato_pdf = filename
 
+        # 🔹 Cria cobrança no Asaas
+        cur.execute("SELECT asaas_id FROM clientes WHERE id=%s", (cliente_id,))
+        cliente = cur.fetchone()
+        boleto_url = None
+        if cliente and cliente["asaas_id"]:
+            cobranca = criar_cobranca_asaas(cliente["asaas_id"], valor, data_inicio)
+            boleto_url = cobranca.get("bankSlipUrl")
+
         cur.execute("""
-            INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf) 
-            VALUES (%s,%s,%s,%s,%s)
-        """, (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf))
+            INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf, boleto_url) 
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf, boleto_url))
 
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
         conn.commit()
@@ -425,7 +465,8 @@ def locacoes():
                           l.data_fim, 
                           l.cancelado,
                           l.observacoes,
-                          l.contrato_pdf
+                          l.contrato_pdf,
+                          l.boleto_url
                    FROM locacoes l
                    JOIN clientes c ON l.cliente_id=c.id
                    JOIN motos m ON l.moto_id=m.id
