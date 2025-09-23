@@ -1,21 +1,31 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
+{% block title %}Habilitação — {{ cliente.nome }}{% endblock %}
 {% block content %}
-<h2 class="mb-4">Habilitação de {{ cliente.nome }}</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Habilitação de {{ cliente.nome }}</h2>
+  <a href="{{ url_for('clientes') }}" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+  </a>
+</div>
 
 <!-- Upload da habilitação -->
 <div class="card mb-4 shadow-sm">
+  <div class="card-header bg-primary text-white">
+    <i class="fa-solid fa-upload me-1"></i> Anexar/Alterar Habilitação
+  </div>
   <div class="card-body">
-    <h5 class="card-title">Anexar/Alterar Habilitação</h5>
     <form method="post" enctype="multipart/form-data">
       <div class="row g-3 align-items-end">
         <div class="col-md-8">
+          <label class="form-label">Arquivo (PDF/Imagem)</label>
           <input type="file" name="habilitacao" class="form-control"
                  accept=".pdf,.jpg,.jpeg,.png" required>
           <small class="text-muted">Permitido: PDF, JPG, JPEG, PNG</small>
         </div>
         <div class="col-md-4">
-          <button class="btn btn-primary w-100">Upload</button>
+          <button class="btn btn-success w-100">
+            <i class="fa-solid fa-cloud-arrow-up me-1"></i> Enviar
+          </button>
         </div>
       </div>
     </form>
@@ -25,42 +35,40 @@
 <!-- Habilitação existente -->
 {% if cliente.habilitacao_arquivo %}
 <div class="card shadow-sm">
+  <div class="card-header bg-dark text-white">
+    <i class="fa-solid fa-id-card me-1"></i> Arquivo Atual
+  </div>
   <div class="card-body">
-    <h5 class="card-title">Arquivo Atual</h5>
-    
-    <!-- Exibir PDF ou Imagem -->
     <div class="mb-3">
-      {% if cliente.habilitacao_arquivo.endswith('.pdf') %}
-        <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}" 
-           target="_blank" class="btn btn-outline-primary">
-           <i class="fas fa-file-pdf"></i> Ver PDF
+      {% set arquivo = cliente.habilitacao_arquivo %}
+      {% if arquivo and arquivo|lower endswith '.pdf' %}
+        <a href="{{ url_for('uploaded_habilitacao', filename=arquivo) }}" 
+           target="_blank" class="btn btn-outline-primary me-2">
+          <i class="fa-solid fa-file-pdf me-1"></i> Ver PDF
         </a>
       {% else %}
-        <img src="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}" 
-             class="img-fluid rounded" style="max-width:400px; border: 1px solid #ddd;">
+        <div class="mb-2">
+          <img src="{{ url_for('uploaded_habilitacao', filename=arquivo) }}" 
+               class="img-fluid rounded border" style="max-width: 480px;">
+        </div>
+        <a href="{{ url_for('uploaded_habilitacao', filename=arquivo) }}" 
+           target="_blank" class="btn btn-outline-primary">
+          <i class="fa-solid fa-up-right-from-square me-1"></i> Abrir em nova aba
+        </a>
       {% endif %}
     </div>
 
-    <!-- Botão para excluir -->
     <form method="post" action="{{ url_for('excluir_habilitacao', id=cliente.id) }}" 
-          onsubmit="return confirm('Tem certeza que deseja excluir a habilitação atual?')" 
-          class="d-inline">
+          onsubmit="return confirm('Tem certeza que deseja excluir a habilitação atual?')">
       <button type="submit" class="btn btn-danger">
-        <i class="fas fa-trash"></i> Excluir Habilitação
+        <i class="fa-solid fa-trash me-1"></i> Excluir Habilitação
       </button>
     </form>
   </div>
 </div>
 {% else %}
 <div class="alert alert-info">
-  <i class="fas fa-info-circle"></i> Nenhuma habilitação anexada ainda.
+  <i class="fa-solid fa-circle-info me-1"></i> Nenhuma habilitação anexada ainda.
 </div>
 {% endif %}
-
-<!-- Botão voltar -->
-<div class="mt-4">
-  <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
-    <i class="fas fa-arrow-left"></i> Voltar para Clientes
-  </a>
-</div>
 {% endblock %}

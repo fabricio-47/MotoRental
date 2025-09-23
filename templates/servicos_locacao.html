@@ -1,51 +1,98 @@
 {% extends "base.html" %}
+{% block title %}Serviços — Locação #{{ locacao.id }}{% endblock %}
 {% block content %}
-<div class="container mt-4">
-    <h3>Serviços da Locação #{{ locacao.id }} - {{ locacao.nome }} ({{ locacao.modelo }} - {{ locacao.placa }})</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h3>Serviços da Locação #{{ locacao.id }} — {{ locacao.nome }} ({{ locacao.modelo }} — {{ locacao.placa }})</h3>
+  <a href="{{ url_for('locacoes') }}" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+  </a>
+</div>
 
-    <!-- Formulário adicionar serviço -->
-    <form method="POST" class="row g-2 mb-3">
-        <div class="col-md-4">
-            <input type="text" class="form-control" name="descricao" placeholder="Descrição" required>
-        </div>
-        <div class="col-md-2">
-            <input type="number" class="form-control" name="valor" step="0.01" placeholder="Valor (R$)">
-        </div>
-        <div class="col-md-3">
-            <input type="number" class="form-control" name="quilometragem" placeholder="Quilometragem (Km)">
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
-        </div>
+<!-- Formulário adicionar serviço -->
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">
+    <i class="fa-solid fa-wrench me-1"></i> Adicionar Serviço
+  </div>
+  <div class="card-body">
+    <form method="POST" class="row g-2">
+      <div class="col-md-5">
+        <label class="form-label visually-hidden">Descrição</label>
+        <input type="text" class="form-control" name="descricao" placeholder="Descrição" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label visually-hidden">Valor</label>
+        <input type="number" class="form-control" name="valor" step="0.01" placeholder="Valor (R$)">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label visually-hidden">Quilometragem</label>
+        <input type="number" class="form-control" name="quilometragem" placeholder="Quilometragem (Km)">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-success w-100">
+          <i class="fa-solid fa-plus me-1"></i> Adicionar
+        </button>
+      </div>
     </form>
+  </div>
+</div>
 
-    <!-- Tabela de serviços -->
-    <h5>Serviços Registrados</h5>
-    <table class="table table-striped table-bordered">
+<!-- Tabela de serviços -->
+<div class="card">
+  <div class="card-header bg-dark text-white">
+    <i class="fa-solid fa-list-check me-1"></i> Serviços Registrados
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
         <thead class="table-dark">
-            <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Valor</th>
-                <th>Quilometragem (Km)</th>
-            </tr>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Valor</th>
+            <th>Quilometragem (Km)</th>
+            <th style="width: 120px;">Ações</th>
+          </tr>
         </thead>
         <tbody>
-            {% if servicos %}
-                {% for s in servicos %}
-                <tr>
-                    <td>{{ s.data_servico.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ s.descricao }}</td>
-                    <td>R$ {{ '%.2f' | format(s.valor) }}</td>
-                    <td>{{ s.quilometragem if s.quilometragem else '-' }}</td>
-                </tr>
-                {% endfor %}
-            {% else %}
-                <tr><td colspan="4" class="text-center">Nenhum serviço registrado.</td></tr>
-            {% endif %}
+          {% if servicos and servicos|length > 0 %}
+            {% for s in servicos %}
+            <tr>
+              <td>
+                {% set dt = s.data_servico if s.data_servico is defined else s['data_servico'] %}
+                {{ dt }}
+              </td>
+              <td>{{ s.descricao if s.descricao is defined else s['descricao'] }}</td>
+              <td>
+                {% set val = s.valor if s.valor is defined else s['valor'] %}
+                {% if val is not none %}
+                  R$ {{ "%.2f"|format(val) }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% set km = s.quilometragem if s.quilometragem is defined else s['quilometragem'] %}
+                {{ km if km else '—' }}
+              </td>
+              <td>
+                <form method="POST"
+                      action="{{ url_for('excluir_servico_locacao', locacao_id=locacao.id, servico_id=(s.id if s.id is defined else s['id'])) }}"
+                      onsubmit="return confirm('Remover este serviço?')">
+                  <button type="submit" class="btn btn-sm btn-danger w-100">
+                    <i class="fa-solid fa-trash me-1"></i> Remover
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted">Nenhum serviço registrado.</td>
+            </tr>
+          {% endif %}
         </tbody>
-    </table>
-
-    <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">Voltar</a>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

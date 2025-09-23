@@ -1,14 +1,19 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
-<h2 class="mb-4">Dashboard</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Dashboard</h2>
+</div>
 
 <div class="row g-4 mb-4">
   <div class="col-md-3">
-    <div class="card text-white bg-primary shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Clientes</h5>
-        <p class="card-text display-6">{{ total_clientes }}</p>
+    <div class="card text-white bg-primary shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="card-subtitle mb-1">Clientes</h6>
+          <div class="display-6">{{ total_clientes }}</div>
+        </div>
+        <i class="fa-solid fa-users fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
         <a href="{{ url_for('clientes') }}" class="btn btn-light btn-sm">Ver Clientes</a>
@@ -17,10 +22,13 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card text-white bg-success shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Motos</h5>
-        <p class="card-text display-6">{{ total_motos }}</p>
+    <div class="card text-white bg-success shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="card-subtitle mb-1">Motos</h6>
+          <div class="display-6">{{ total_motos }}</div>
+        </div>
+        <i class="fa-solid fa-motorcycle fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
         <a href="{{ url_for('motos') }}" class="btn btn-light btn-sm">Ver Motos</a>
@@ -29,10 +37,13 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card text-dark bg-warning shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Locações Ativas</h5>
-        <p class="card-text display-6">{{ locacoes_ativas }}</p>
+    <div class="card text-dark bg-warning shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="card-subtitle mb-1">Locações Ativas</h6>
+          <div class="display-6">{{ locacoes_ativas }}</div>
+        </div>
+        <i class="fa-solid fa-key fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
         <a href="{{ url_for('locacoes') }}" class="btn btn-dark btn-sm">Ver Locações</a>
@@ -41,10 +52,13 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card text-white bg-danger shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Canceladas</h5>
-        <p class="card-text display-6">{{ locacoes_canceladas }}</p>
+    <div class="card text-white bg-danger shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="card-subtitle mb-1">Canceladas</h6>
+          <div class="display-6">{{ locacoes_canceladas }}</div>
+        </div>
+        <i class="fa-solid fa-ban fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
         <a href="{{ url_for('locacoes_canceladas') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
@@ -52,4 +66,118 @@
     </div>
   </div>
 </div>
+
+<!-- Seção opcional: atalhos rápidos -->
+<div class="card mb-4">
+  <div class="card-header bg-dark text-white">
+    <i class="fa-solid fa-bolt me-1"></i> Atalhos Rápidos
+  </div>
+  <div class="card-body d-flex flex-wrap gap-2">
+    <a href="{{ url_for('clientes') }}" class="btn btn-outline-primary">
+      <i class="fa-solid fa-user-plus me-1"></i> Novo Cliente
+    </a>
+    <a href="{{ url_for('motos') }}" class="btn btn-outline-success">
+      <i class="fa-solid fa-motorcycle me-1"></i> Nova Moto
+    </a>
+    <a href="{{ url_for('locacoes') }}" class="btn btn-outline-dark">
+      <i class="fa-solid fa-file-signature me-1"></i> Nova Locação
+    </a>
+  </div>
+</div>
+
+<!-- Seções opcionais: aparecem apenas se o backend fornecer estes dados -->
+{% if recentes_clientes or recentes_locacoes %}
+<div class="row g-4">
+  {% if recentes_clientes %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">
+        <i class="fa-solid fa-user-clock me-1"></i> Últimos Clientes
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in recentes_clientes %}
+              <tr>
+                <td>{{ c.nome }}</td>
+                <td>{{ c.email }}</td>
+                <td>{{ c.telefone }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="3" class="text-center text-muted">—</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer text-end">
+        <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recentes_locacoes %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-warning">
+        <i class="fa-solid fa-clock-rotate-left me-1"></i> Últimas Locações
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>Moto</th>
+                <th>Início</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for l in recentes_locacoes %}
+              <tr>
+                <td>{{ l.id }}</td>
+                <td>{{ l.cliente_nome }}</td>
+                <td>{{ l.moto_modelo }} ({{ l.moto_placa }})</td>
+                <td>{{ l.data_inicio }}</td>
+                <td>
+                  {% set st = l.pagamento_status %}
+                  {% if st %}
+                    <span class="badge bg-{% if st == 'RECEIVED' %}success{% elif st == 'PENDING' %}warning{% elif st == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
+                      {{ st }}
+                    </span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="5" class="text-center text-muted">—</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer text-end">
+        <a href="{{ url_for('locacoes') }}" class="btn btn-sm btn-outline-dark">Ver todas</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

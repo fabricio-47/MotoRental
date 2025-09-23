@@ -1,28 +1,40 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
+{% block title %}Imagens da Moto — {{ moto.modelo }} ({{ moto.placa }}){% endblock %}
 {% block content %}
-<h2 class="mb-4">Imagens da Moto</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Imagens da Moto</h2>
+  <a class="btn btn-outline-secondary" href="{{ url_for('motos') }}">
+    <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+  </a>
+</div>
 
 <!-- Info da moto -->
 <div class="card mb-4 shadow-sm">
+  <div class="card-header bg-dark text-white">
+    <i class="fa-solid fa-motorcycle me-1"></i> {{ moto.modelo }} — {{ moto.placa }}
+  </div>
   <div class="card-body">
-    <h5 class="card-title">{{ moto.modelo }} - {{ moto.placa }}</h5>
-    <p><strong>Ano:</strong> {{ moto.ano }}</p>
+    <p class="mb-0">
+      <strong>Ano:</strong> {{ moto.ano }}
+    </p>
   </div>
 </div>
 
 <!-- Formulário de upload -->
 <div class="card mb-4 shadow-sm">
+  <div class="card-header bg-primary text-white">
+    <i class="fa-solid fa-upload me-1"></i> Anexar nova imagem
+  </div>
   <div class="card-body">
-    <h5 class="card-title">Anexar nova imagem</h5>
     <form method="POST" enctype="multipart/form-data">
       <div class="row g-3 align-items-center">
         <div class="col-md-8">
           <input type="file" name="imagem" class="form-control" accept="image/*" required>
+          <small class="text-muted">Formatos suportados: JPG, JPEG, PNG. Tamanho razoável recomendado.</small>
         </div>
         <div class="col-md-4">
-          <button class="btn btn-primary w-100" type="submit">
-            Upload
+          <button class="btn btn-success w-100" type="submit">
+            <i class="fa-solid fa-cloud-arrow-up me-1"></i> Enviar
           </button>
         </div>
       </div>
@@ -32,21 +44,22 @@
 
 <!-- Galeria de imagens -->
 <div class="row">
-  {% if imagens %}
+  {% if imagens and imagens|length > 0 %}
     {% for img in imagens %}
       <div class="col-md-3 mb-4">
-        <div class="card shadow-sm">
-          <img src="{{ url_for('uploaded_file', filename=img['arquivo']) }}" 
+        <div class="card shadow-sm h-100">
+          <img src="{{ url_for('uploaded_file', filename=img.arquivo if img.arquivo is defined else img['arquivo']) }}" 
                class="card-img-top" alt="Imagem da moto" style="height: 200px; object-fit: cover;">
           <div class="card-body text-center">
-            <small class="text-muted d-block mb-2">
-              Enviado em {{ img['data_upload'].strftime('%d/%m/%Y %H:%M') }}
-            </small>
-            <!-- 🔹 Botão para excluir imagem -->
-            <form method="POST" action="{{ url_for('excluir_imagem_moto', moto_id=moto.id, imagem_id=img.id) }}" 
-                  onsubmit="return confirm('Tem certeza que deseja excluir esta imagem?')" style="display: inline;">
+            {% set dt = (img.data_upload if img.data_upload is defined else img['data_upload']) %}
+            {% if dt %}
+              <small class="text-muted d-block mb-2">Enviado em {{ dt }}</small>
+            {% endif %}
+            <form method="POST"
+                  action="{{ url_for('excluir_imagem_moto', moto_id=moto.id, imagem_id=(img.id if img.id is defined else img['id'])) }}"
+                  onsubmit="return confirm('Tem certeza que deseja excluir esta imagem?')">
               <button type="submit" class="btn btn-sm btn-danger">
-                🗑️ Excluir
+                <i class="fa-solid fa-trash me-1"></i> Excluir
               </button>
             </form>
           </div>
@@ -56,12 +69,10 @@
   {% else %}
     <div class="col-12">
       <div class="alert alert-info text-center">
-        <h5>📷 Nenhuma imagem cadastrada</h5>
+        <h5 class="mb-1"><i class="fa-regular fa-images me-1"></i> Nenhuma imagem cadastrada</h5>
         <p class="mb-0">Use o formulário acima para anexar a primeira imagem desta moto.</p>
       </div>
     </div>
   {% endif %}
 </div>
-
-<a class="btn btn-secondary mt-3" href="{{ url_for('motos') }}">⬅ Voltar</a>
 {% endblock %}

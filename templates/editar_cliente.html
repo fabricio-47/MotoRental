@@ -1,11 +1,26 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
+{% block title %}Editar Cliente{% endblock %}
 {% block content %}
-<h2 class="mb-4">Editar Cliente</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Editar Cliente</h2>
+  <a href="{{ url_for('clientes') }}" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+  </a>
+</div>
+
+{% if cliente.asaas_id %}
+<div class="alert alert-info">
+  <i class="fa-solid fa-plug-circle-check me-1"></i>
+  Integrado ao Asaas:
+  <span class="badge bg-primary">{{ cliente.asaas_id }}</span>
+</div>
+{% endif %}
 
 <div class="card shadow-sm">
+  <div class="card-header bg-primary text-white">
+    <i class="fa-solid fa-user-pen me-1"></i> Dados do Cliente
+  </div>
   <div class="card-body">
-    <!-- enctype obrigatório para upload -->
     <form method="post" enctype="multipart/form-data">
       <div class="row g-3">
         <div class="col-md-6">
@@ -13,12 +28,12 @@
           <input type="text" name="nome" class="form-control" value="{{ cliente.nome }}" required>
         </div>
         <div class="col-md-6">
-          <label class="form-label">Email</label>
+          <label class="form-label">E-mail</label>
           <input type="email" name="email" class="form-control" value="{{ cliente.email }}" required>
         </div>
         <div class="col-md-6">
           <label class="form-label">Telefone</label>
-          <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone }}">
+          <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone or '' }}">
         </div>
         <div class="col-md-6">
           <label class="form-label">CPF</label>
@@ -36,28 +51,41 @@
           <label class="form-label">Observações</label>
           <textarea name="observacoes" class="form-control" rows="3">{{ cliente.observacoes or '' }}</textarea>
         </div>
+      </div>
 
-        <!-- 🔹 Campo para habilitação -->
-        <div class="col-md-12">
+      <hr class="my-4">
+
+      <div class="row g-3">
+        <div class="col-12">
           <label class="form-label">Habilitação (PDF/Imagem)</label>
           {% if cliente.habilitacao_arquivo %}
-            <p>
-              Documento atual:
+            <div class="d-flex align-items-center gap-2 mb-2">
               <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
                  target="_blank"
-                 class="btn btn-sm btn-outline-primary">📄 Ver Habilitação</a>
-            </p>
+                 class="btn btn-sm btn-outline-primary" title="Ver Habilitação">
+                <i class="fa-solid fa-id-card me-1"></i> Ver Habilitação
+              </a>
+              <form method="post" action="{{ url_for('excluir_habilitacao', id=cliente.id) }}" onsubmit="return confirm('Remover habilitação atual?');">
+                <button class="btn btn-sm btn-danger" type="submit" title="Remover Habilitação">
+                  <i class="fa-solid fa-trash-can me-1"></i> Remover
+                </button>
+              </form>
+            </div>
+          {% else %}
+            <p class="text-muted mb-2">Nenhuma habilitação anexada.</p>
           {% endif %}
           <input type="file" name="habilitacao" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-          <small class="text-muted">Deixe em branco se não quiser substituir</small>
+          <small class="text-muted">Envie um novo arquivo para substituir. Deixe em branco para manter o atual.</small>
         </div>
       </div>
 
       <div class="mt-4">
         <button class="btn btn-success">
-          <i class="fas fa-save"></i> Salvar Alterações
+          <i class="fa-solid fa-save me-1"></i> Salvar Alterações
         </button>
-        <a href="{{ url_for('clientes') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Cancelar</a>
+        <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
+          <i class="fa-solid fa-xmark me-1"></i> Cancelar
+        </a>
       </div>
     </form>
   </div>
