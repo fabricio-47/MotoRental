@@ -444,7 +444,7 @@ def excluir_moto(id):
 
             # Buscar arquivos relacionados da moto
             cur.execute("""
-                SELECT imagem_arquivo, documento_arquivo
+                SELECT imagem, documento_arquivo
                 FROM motos
                 WHERE id=%s
             """, (id,))
@@ -454,8 +454,8 @@ def excluir_moto(id):
                 return redirect(url_for("motos"))
 
             # Remover arquivo de imagem da moto
-            if moto["imagem_arquivo"]:
-                caminho_imagem = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], moto["imagem_arquivo"])
+            if moto["imagem"]:
+                caminho_imagem = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], moto["imagem"])
                 if os.path.exists(caminho_imagem):
                     os.remove(caminho_imagem)
 
