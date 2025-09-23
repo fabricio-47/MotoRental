@@ -81,6 +81,20 @@ def criar_cobranca_asaas(customer_id, valor, vencimento, descricao="Locação de
     r = requests.post(f"{ASAAS_BASE_URL}/payments", headers=asaas_headers, json=payload)
     return r.json()
 
+def buscar_cliente_asaas(cpf=None, email=None):
+    params = {}
+    if cpf:
+        params["cpfCnpj"] = cpf
+    if email:
+        params["email"] = email
+
+    r = requests.get(f"{ASAAS_BASE_URL}/customers", headers=asaas_headers, params=params)
+    if r.status_code == 200:
+        data = r.json()
+        if data.get("data") and len(data["data"]) > 0:
+            return data["data"][0]  # Retorna o primeiro cliente encontrado
+    return None
+
 # ---- ROTAS ----
 @app.route("/")
 def home():
@@ -158,15 +172,17 @@ def clientes():
                     flash("Já existe cliente com este e-mail ou CPF.", "error")
                     return redirect(url_for("clientes"))
 
-                # Criar cliente no Asaas
-                asaas_cliente = criar_cliente_asaas(nome, email, cpf, telefone)
-                if "errors" in asaas_cliente:
-                    # Mensagem vinda do Asaas
-                    msg = asaas_cliente["errors"][0].get("description", "Erro ao criar cliente no Asaas.")
-                    flash(f"Erro no Asaas: {msg}", "error")
-                    return redirect(url_for("clientes"))
-
-                asaas_id = asaas_cliente.get("id")
+                # Verificar se cliente já existe no Asaas
+                cliente_asaas_existente = buscar_cliente_asaas(cpf=cpf, email=email)
+                if cliente_asaas_existente:
+                    asaas_id = cliente_asaas_existente.get("id")
+                else:
+                    asaas_cliente = criar_cliente_asaas(nome, email, cpf, telefone)
+                    if "errors" in asaas_cliente:
+                        msg = asaas_cliente["errors"][0].get("description", "Erro ao criar cliente no Asaas.")
+                        flash(f"Erro no Asaas: {msg}", "error")
+                        return redirect(url_for("clientes"))
+                    asaas_id = asaas_cliente.get("id")
 
                 # Inserir localmente
                 cur.execute("""
@@ -238,6 +254,12 @@ def editar_cliente(id):
 def excluir_cliente(id):
     try:
         with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Verifica se o cliente tem locações ativas
+            cur.execute("SELECT id FROM locacoes WHERE cliente_id=%s AND cancelado=FALSE", (id,))
+            if cur.fetchone():
+                flash("Não é possível excluir cliente com locações ativas.", "error")
+                return redirect(url_for("clientes"))
+
             # remover arquivo de habilitação se houver
             cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
             cliente = cur.fetchone()
@@ -414,33 +436,50 @@ def editar_moto(id):
 def excluir_moto(id):
     try:
         with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Remover imagens relacionadas
+            # Verifica se a moto tem locações ativas
+            cur.execute("SELECT id FROM locacoes WHERE moto_id=%s AND cancelado=FALSE", (id,))
+            if cur.fetchone():
+                flash("Não é possível excluir moto com locações ativas.", "error")
+                return redirect(url_for("motos"))
+
+            # Buscar arquivos relacionados da moto
+            cur.execute("""
+                SELECT imagem_arquivo, documento_arquivo
+                FROM motos
+                WHERE id=%s
+            """, (id,))
+            moto = cur.fetchone()
+            if not moto:
+                flash("Moto não encontrada.", "error")
+                return redirect(url_for("motos"))
+
+            # Remover arquivo de imagem da moto
+            if moto["imagem_arquivo"]:
+                caminho_imagem = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], moto["imagem_arquivo"])
+                if os.path.exists(caminho_imagem):
+                    os.remove(caminho_imagem)
+
+            # Remover arquivo de documento da moto
+            if moto["documento_arquivo"]:
+                caminho_documento = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], moto["documento_arquivo"])
+                if os.path.exists(caminho_documento):
+                    os.remove(caminho_documento)
+
+            # Se você tiver outras pastas/arquivos relacionados (ex: imagens múltiplas), remova aqui também
+            # Exemplo para múltiplas imagens:
             cur.execute("SELECT arquivo FROM moto_imagens WHERE moto_id=%s", (id,))
             imagens = cur.fetchall()
             for img in imagens:
-                path = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], img["arquivo"])
-                if os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except Exception:
-                        pass
+                caminho_img = os.path.join(app.config["UPLOAD_FOLDER_MOTO_IMAGENS"], img["arquivo"])
+                if os.path.exists(caminho_img):
+                    os.remove(caminho_img)
+
+            # Excluir registros de imagens múltiplas da moto
             cur.execute("DELETE FROM moto_imagens WHERE moto_id=%s", (id,))
 
-            # Remover documento da moto
-            cur.execute("SELECT documento_arquivo FROM motos WHERE id=%s", (id,))
-            moto = cur.fetchone()
-            if moto and moto["documento_arquivo"]:
-                path = os.path.join(app.config["UPLOAD_FOLDER_DOCUMENTOS"], moto["documento_arquivo"])
-                if os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except Exception:
-                        pass
-
-            # Excluir moto
+            # Excluir a moto
             cur.execute("DELETE FROM motos WHERE id=%s", (id,))
             get_db().commit()
-
             flash("Moto excluída com sucesso!", "info")
     except Exception as e:
         get_db().rollback()
@@ -508,7 +547,7 @@ def moto_imagens(moto_id):
         cur.execute("SELECT * FROM moto_imagens WHERE moto_id = %s ORDER BY data_upload DESC", (moto_id,))
         imagens = cur.fetchall()
 
-        return render_template("moto_imagens.html", moto=moto, imagens=imagens)
+    return render_template("moto_imagens.html", moto=moto, imagens=imagens)
 
 
 @app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])

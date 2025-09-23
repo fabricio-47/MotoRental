@@ -87,9 +87,9 @@
           {% for locacao in locacoes %}
           <tr>
             <td>{{ locacao.id }}</td>
-            <td>{{ locacao.nome }}</td>
-            <td>{{ locacao.modelo }}</td>
-            <td>{{ locacao.placa }}</td>
+            <td>{{ locacao.cliente_nome }}</td>
+            <td>{{ locacao.moto_modelo }}</td>
+            <td>{{ locacao.moto_placa }}</td>
             <td>{{ locacao.data_inicio }}</td>
             <td>{{ locacao.data_fim or '-' }}</td>
             <td>
