@@ -33,11 +33,7 @@
             <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
             <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select">
                 <option value="WEEKLY" {% if locacao.frequencia_pagamento=="WEEKLY" %}selected{% endif %}>Semanal</option>
-                <option value="BIWEEKLY" {% if locacao.frequencia_pagamento=="BIWEEKLY" %}selected{% endif %}>Quinzenal</option>
                 <option value="MONTHLY" {% if locacao.frequencia_pagamento=="MONTHLY" %}selected{% endif %}>Mensal</option>
-                <option value="QUARTERLY" {% if locacao.frequencia_pagamento=="QUARTERLY" %}selected{% endif %}>Trimestral</option>
-                <option value="YEARLY" {% if locacao.frequencia_pagamento=="YEARLY" %}selected{% endif %}>Anual</option>
-                <option value="CUSTOM" {% if locacao.frequencia_pagamento=="CUSTOM" %}selected{% endif %}>Personalizado</option>
             </select>
         </div>
 

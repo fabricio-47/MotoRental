@@ -48,11 +48,7 @@
           <select name="frequencia_pagamento" class="form-select" required>
             <option value="">Selecione...</option>
             <option value="WEEKLY">Semanal</option>
-            <option value="BIWEEKLY">Quinzenal</option>
             <option value="MONTHLY">Mensal</option>
-            <option value="QUARTERLY">Trimestral</option>
-            <option value="YEARLY">Anual</option>
-            <option value="CUSTOM">Personalizado</option>
           </select>
         </div>
         <div class="col-md-6">
@@ -108,11 +104,7 @@
             <td>{{ locacao.data_fim or '-' }}</td>
             <td>
               {% if locacao.frequencia_pagamento == 'WEEKLY' %}Semanal
-              {% elif locacao.frequencia_pagamento == 'BIWEEKLY' %}Quinzenal
               {% elif locacao.frequencia_pagamento == 'MONTHLY' %}Mensal
-              {% elif locacao.frequencia_pagamento == 'QUARTERLY' %}Trimestral
-              {% elif locacao.frequencia_pagamento == 'YEARLY' %}Anual
-              {% elif locacao.frequencia_pagamento == 'CUSTOM' %}Personalizado
               {% else %}-{% endif %}
             </td>
             <td>
