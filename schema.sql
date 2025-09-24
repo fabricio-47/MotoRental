@@ -1,22 +1,21 @@
--- Schema completo unificado para o banco MotoRental
+-- Schema MotoRental (limpo e padronizado)
 
 CREATE TABLE clientes (
     id SERIAL PRIMARY KEY,
     nome TEXT NOT NULL,
     email TEXT NOT NULL,
     telefone TEXT NOT NULL,
-    cpf VARCHAR(255),
+    cpf VARCHAR(20),
     endereco TEXT,
     data_nascimento DATE,
     observacoes TEXT,
     habilitacao_arquivo VARCHAR(255),
-    asaas_id VARCHAR(255),
-    id_asaas VARCHAR(255)
+    asaas_id VARCHAR(255) -- ID único do cliente no Asaas
 );
 
 CREATE TABLE motos (
     id SERIAL PRIMARY KEY,
-    placa TEXT NOT NULL,
+    placa VARCHAR(20) NOT NULL,
     modelo TEXT NOT NULL,
     ano INTEGER,
     disponivel BOOLEAN DEFAULT TRUE,
@@ -33,14 +32,16 @@ CREATE TABLE locacoes (
     cancelado BOOLEAN DEFAULT FALSE,
     observacoes TEXT,
     contrato_pdf VARCHAR(255),
+
+    -- integração com Asaas
     boleto_url TEXT,
-    url_boleto TEXT,
-    id_pagamento_asaas VARCHAR(255),
-    status_pagamento VARCHAR(255),
-    pagamento_status VARCHAR(255),
-    valor_pago NUMERIC,
+    pagamento_status VARCHAR(50),
+    valor_pago NUMERIC(10,2),
     data_pagamento TIMESTAMP,
-    asaas_payment_id VARCHAR(255)
+    asaas_payment_id VARCHAR(255),
+
+    -- frequência de pagamento
+    frequencia_pagamento VARCHAR(20)
 );
 
 CREATE TABLE moto_imagens (
@@ -54,7 +55,7 @@ CREATE TABLE servicos_locacao (
     id SERIAL PRIMARY KEY,
     locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
     descricao TEXT NOT NULL,
-    valor NUMERIC,
+    valor NUMERIC(10,2),
     data_servico DATE,
     quilometragem INTEGER
 );

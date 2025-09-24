@@ -65,6 +65,9 @@ asaas_headers = {
     "access_token": ASAAS_API_KEY
 }
 
+# Frequências de pagamento permitidas
+FREQ_ALLOWED = {"semanal", "quinzenal", "mensal", "trimestral"}
+
 def criar_cliente_asaas(nome, email, cpf, telefone):
     payload = {"name": nome, "email": email, "cpfCnpj": cpf, "mobilePhone": telefone}
     r = requests.post(f"{ASAAS_BASE_URL}/customers", headers=asaas_headers, json=payload)
@@ -113,13 +116,13 @@ def login():
             cur.execute("SELECT id, username, email, senha FROM usuarios WHERE email = %s", (email,))
             user = cur.fetchone()
 
-        if user and check_password_hash(user["senha"], senha):
-            session["user_id"] = user["id"]
-            session["user_email"] = user["email"]
-            session["username"] = user["username"]
-            return redirect(url_for("dashboard"))
-        else:
-            flash("E-mail ou senha inválidos", "error")
+            if user and check_password_hash(user["senha"], senha):
+                session["user_id"] = user["id"]
+                session["user_email"] = user["email"]
+                session["username"] = user["username"]
+                return redirect(url_for("dashboard"))
+            else:
+                flash("E-mail ou senha inválidos", "error")
 
     return render_template("login.html")
 
@@ -247,7 +250,7 @@ def editar_cliente(id):
             flash("Cliente não encontrado!", "error")
             return redirect(url_for("clientes"))
 
-        return render_template("editar_cliente.html", cliente=cliente)
+    return render_template("editar_cliente.html", cliente=cliente)
 
 
 @app.route("/clientes/<int:id>/excluir", methods=["POST"])
@@ -331,7 +334,7 @@ def cliente_habilitacao(id):
             flash("Cliente não encontrado.", "error")
             return redirect(url_for("clientes"))
 
-        return render_template("cliente_habilitacao.html", cliente=cliente)
+    return render_template("cliente_habilitacao.html", cliente=cliente)
 
 
 @app.route("/clientes/<int:id>/habilitacao/excluir", methods=["POST"])
@@ -429,7 +432,7 @@ def editar_moto(id):
             flash("Moto não encontrada.", "error")
             return redirect(url_for("motos"))
 
-        return render_template("editar_moto.html", moto=moto)
+    return render_template("editar_moto.html", moto=moto)
 
 
 @app.route("/motos/<int:id>/excluir", methods=["POST"])
@@ -470,7 +473,7 @@ def excluir_moto(id):
             cur.execute("SELECT arquivo FROM moto_imagens WHERE moto_id=%s", (id,))
             imagens = cur.fetchall()
             for img in imagens:
-                caminho_img = os.path.join(app.config["UPLOAD_FOLDER_MOTO_IMAGENS"], img["arquivo"])
+                caminho_img = os.path.join(app.config["UPLOAD_FOLDER_MOTOS"], img["arquivo"])
                 if os.path.exists(caminho_img):
                     os.remove(caminho_img)
 
@@ -628,7 +631,7 @@ def moto_documento(moto_id):
 
             return redirect(url_for("moto_documento", moto_id=moto_id))
 
-        return render_template("moto_documento.html", moto=moto)
+    return render_template("moto_documento.html", moto=moto)
 
 
 @app.route("/motos/<int:moto_id>/documento/excluir", methods=["POST"])
@@ -668,6 +671,12 @@ def locacoes():
         data_inicio = request.form["data_inicio"]
         observacoes = (request.form.get("observacoes") or "").strip()
         valor = request.form.get("valor") or 0
+        frequencia_pagamento = request.form.get("frequencia_pagamento")
+
+        # Validação da frequência (precisa estar dentro do POST)
+        if frequencia_pagamento not in FREQ_ALLOWED:
+            flash("Frequência de pagamento inválida.", "error")
+            return redirect(url_for("locacoes"))
 
         try:
             with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -711,13 +720,13 @@ def locacoes():
                         return redirect(url_for("locacoes"))
                     
                     boleto_url = cobranca.get("bankSlipUrl")
-                    asaas_payment_id = cobranca.get("id")  # 🔹 CORRIGIDO: salvar ID do pagamento
+                    asaas_payment_id = cobranca.get("id")  # 🔹 salvar ID do pagamento
 
-                # Inserir locação com asaas_payment_id
+                # Inserir locação com valor e frequencia_pagamento
                 cur.execute("""
-                    INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf, boleto_url, asaas_payment_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s)
-                """, (cliente_id, moto_id, data_inicio, observacoes, contrato_pdf, boleto_url, asaas_payment_id))
+                    INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id))
 
                 # Marcar moto como indisponível
                 cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
@@ -734,18 +743,19 @@ def locacoes():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT l.id, 
-            c.nome AS cliente_nome, 
-            m.modelo AS moto_modelo, 
-            m.placa AS moto_placa,
-            l.data_inicio, 
-            l.data_fim, 
-            l.cancelado,
-            l.observacoes,
-            l.contrato_pdf,
-            l.boleto_url,
-            l.pagamento_status,
-            l.valor_pago,
-            l.data_pagamento
+                   c.nome AS cliente_nome, 
+                   m.modelo AS moto_modelo, 
+                   m.placa AS moto_placa,
+                   l.data_inicio, 
+                   l.data_fim, 
+                   l.cancelado,
+                   l.observacoes,
+                   l.contrato_pdf,
+                   l.boleto_url,
+                   l.pagamento_status,
+                   l.valor_pago,
+                   l.data_pagamento,
+                   l.frequencia_pagamento
             FROM locacoes l
             JOIN clientes c ON l.cliente_id = c.id
             JOIN motos m ON l.moto_id = m.id
@@ -761,7 +771,6 @@ def locacoes():
         motos = cur.fetchall()
 
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
-
 
 @app.route("/locacoes/<int:id>/editar", methods=["GET", "POST"])
 def editar_locacao(id):
@@ -836,7 +845,7 @@ def editar_locacao(id):
             flash("Locação não encontrada.", "error")
             return redirect(url_for("locacoes"))
 
-        return render_template("editar_locacao.html", locacao=locacao)
+    return render_template("editar_locacao.html", locacao=locacao)
 
 
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
@@ -870,17 +879,17 @@ def locacoes_canceladas():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT l.id, 
-            c.nome AS cliente_nome, 
-            m.modelo AS moto_modelo, 
-            m.placa AS moto_placa,
-            l.data_inicio, 
-            l.data_fim, 
-            l.observacoes,
-            l.contrato_pdf,
-            l.boleto_url,
-            l.pagamento_status,
-            l.valor_pago,
-            l.data_pagamento
+                   c.nome AS cliente_nome, 
+                   m.modelo AS moto_modelo, 
+                   m.placa AS moto_placa,
+                   l.data_inicio, 
+                   l.data_fim, 
+                   l.observacoes,
+                   l.contrato_pdf,
+                   l.boleto_url,
+                   l.pagamento_status,
+                   l.valor_pago,
+                   l.data_pagamento
             FROM locacoes l
             JOIN clientes c ON l.cliente_id = c.id
             JOIN motos m ON l.moto_id = m.id

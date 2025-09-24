@@ -1,3 +1,4 @@
+<!-- editar_locacao.html -->
 {% extends "base.html" %}
 {% block title %}Editar Locação #{{ locacao.id }}{% endblock %}
 {% block content %}
@@ -21,35 +22,35 @@
   </div>
   <div class="card-body">
     <div class="row">
-      <div class="col-md-3">
-        <strong>Status:</strong>
-        {% if locacao.pagamento_status %}
-          <span class="badge bg-{% if locacao.pagamento_status == 'RECEIVED' %}success{% elif locacao.pagamento_status == 'PENDING' %}warning{% elif locacao.pagamento_status == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
-            {{ locacao.pagamento_status }}
-          </span>
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </div>
-      <div class="col-md-3">
-        <strong>Valor Pago:</strong>
-        {% if locacao.valor_pago %}
-          R$ {{ "%.2f"|format(locacao.valor_pago) }}
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </div>
-      <div class="col-md-3">
-        <strong>Data Pagamento:</strong>
-        {{ locacao.data_pagamento or '-' }}
-      </div>
-      <div class="col-md-3 text-end">
-        {% if locacao.boleto_url %}
-          <a href="{{ locacao.boleto_url }}" target="_blank" class="btn btn-sm btn-success">
-            <i class="fa-solid fa-barcode me-1"></i> Ver Boleto
-          </a>
-        {% endif %}
-      </div>
+    <div class="col-md-3">
+    <strong>Status:</strong>
+    {% if locacao.pagamento_status %}
+    <span class="badge bg-{% if locacao.pagamento_status == 'RECEIVED' %}success{% elif locacao.pagamento_status == 'PENDING' %}warning{% elif locacao.pagamento_status == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
+    {{ locacao.pagamento_status }}
+    </span>
+    {% else %}
+    <span class="text-muted">—</span>
+    {% endif %}
+    </div>
+    <div class="col-md-3">
+    <strong>Valor Pago:</strong>
+    {% if locacao.valor_pago %}
+    R$ {{ "%.2f"|format(locacao.valor_pago) }}
+    {% else %}
+    <span class="text-muted">—</span>
+    {% endif %}
+    </div>
+    <div class="col-md-3">
+    <strong>Data Pagamento:</strong>
+    {{ locacao.data_pagamento or '-' }}
+    </div>
+    <div class="col-md-3 text-end">
+    {% if locacao.boleto_url %}
+    <a href="{{ locacao.boleto_url }}" target="_blank" class="btn btn-sm btn-success">
+    <i class="fa-solid fa-barcode me-1"></i> Ver Boleto
+    </a>
+    {% endif %}
+    </div>
     </div>
   </div>
 </div>
@@ -61,45 +62,55 @@
   </div>
   <div class="card-body">
     <form method="post" enctype="multipart/form-data">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Data Início</label>
-          <input type="date" name="data_inicio" class="form-control" value="{{ locacao.data_inicio }}" required>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Data Fim</label>
-          <input type="date" name="data_fim" class="form-control" value="{{ locacao.data_fim or '' }}">
-        </div>
-        <div class="col-md-12">
-          <label class="form-label">Observações</label>
-          <textarea name="observacoes" class="form-control" rows="4">{{ locacao.observacoes or '' }}</textarea>
-        </div>
+    <div class="row g-3">
+    <div class="col-md-6">
+    <label class="form-label">Data Início</label>
+    <input type="date" name="data_inicio" class="form-control" value="{{ locacao.data_inicio }}" required>
+    </div>
+    <div class="col-md-6">
+    <label class="form-label">Data Fim</label>
+    <input type="date" name="data_fim" class="form-control" value="{{ locacao.data_fim or '' }}">
+    </div>
+    <div class="col-md-6">
+    <label class="form-label">Frequência de Pagamento</label>
+    <select name="frequencia_pagamento" class="form-select" required>
+    <option value="">Selecione</option>
+    <option value="semanal" {% if locacao.frequencia_pagamento == 'semanal' %}selected{% endif %}>Semanal</option>
+    <option value="quinzenal" {% if locacao.frequencia_pagamento == 'quinzenal' %}selected{% endif %}>Quinzenal</option>
+    <option value="mensal" {% if locacao.frequencia_pagamento == 'mensal' %}selected{% endif %}>Mensal</option>
+    <option value="trimestral" {% if locacao.frequencia_pagamento == 'trimestral' %}selected{% endif %}>Trimestral</option>
+    </select>
+    </div>
+    <div class="col-md-6">
+    <label class="form-label">Observações</label>
+    <textarea name="observacoes" class="form-control" rows="4">{{ locacao.observacoes or '' }}</textarea>
+    </div>
 
-        <div class="col-md-12">
-          <label class="form-label">Contrato (PDF)</label>
-          {% if locacao.contrato_pdf %}
-            <p>
-              Contrato atual:
-              <a href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
-                 target="_blank"
-                 class="btn btn-sm btn-outline-primary">
-                <i class="fa-solid fa-file-pdf me-1"></i> Ver Contrato
-              </a>
-            </p>
-          {% endif %}
-          <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
-          <small class="text-muted">Deixe em branco se não quiser substituir</small>
-        </div>
-      </div>
-      
-      <div class="mt-4">
-        <button class="btn btn-success">
-          <i class="fa-solid fa-save me-1"></i> Salvar Alterações
-        </button>
-        <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">
-          <i class="fa-solid fa-xmark me-1"></i> Cancelar
-        </a>
-      </div>
+    <div class="col-md-12">
+    <label class="form-label">Contrato (PDF)</label>
+    {% if locacao.contrato_pdf %}
+    <p>
+    Contrato atual:
+    <a href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
+    target="_blank"
+    class="btn btn-sm btn-outline-primary">
+    <i class="fa-solid fa-file-pdf me-1"></i> Ver Contrato
+    </a>
+    </p>
+    {% endif %}
+    <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
+    <small class="text-muted">Deixe em branco se não quiser substituir</small>
+    </div>
+    </div>
+
+    <div class="mt-4">
+    <button class="btn btn-success">
+    <i class="fa-solid fa-save me-1"></i> Salvar Alterações
+    </button>
+    <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">
+    <i class="fa-solid fa-xmark me-1"></i> Cancelar
+    </a>
+    </div>
     </form>
   </div>
 </div>
