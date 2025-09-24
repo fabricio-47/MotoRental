@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import psycopg2.extras
 from database import get_db, init_app
+from datetime import datetime
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
@@ -97,6 +98,97 @@ def buscar_cliente_asaas(cpf=None, email=None):
         if data.get("data") and len(data["data"]) > 0:
             return data["data"][0]  # Retorna o primeiro cliente encontrado
     return None
+
+def buscar_pagamentos_asaas(customer_id):
+    """Busca todos os pagamentos de um cliente no Asaas"""
+    try:
+        params = {"customer": customer_id}
+        r = requests.get(f"{ASAAS_BASE_URL}/payments", headers=asaas_headers, params=params)
+        if r.status_code == 200:
+            return r.json().get("data", [])
+    except Exception as e:
+        print(f"Erro ao buscar pagamentos no Asaas: {e}")
+    return []
+
+def sincronizar_boletos_locacao(locacao_id):
+    """
+    Sincroniza os boletos de uma locação específica com o Asaas
+    Busca todos os pagamentos do cliente no Asaas e atualiza a tabela boletos
+    """
+    try:
+        with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Buscar dados da locação e cliente
+            cur.execute("""
+                SELECT l.id, l.cliente_id, c.asaas_id, c.nome as cliente_nome
+                FROM locacoes l
+                JOIN clientes c ON l.cliente_id = c.id
+                WHERE l.id = %s
+            """, (locacao_id,))
+            locacao = cur.fetchone()
+            
+            if not locacao or not locacao["asaas_id"]:
+                return False
+            
+            # Buscar pagamentos no Asaas
+            pagamentos_asaas = buscar_pagamentos_asaas(locacao["asaas_id"])
+            
+            for pagamento in pagamentos_asaas:
+                payment_id = pagamento.get("id")
+                if not payment_id:
+                    continue
+                
+                # Verificar se o boleto já existe na tabela
+                cur.execute("SELECT id FROM boletos WHERE asaas_payment_id = %s", (payment_id,))
+                boleto_existente = cur.fetchone()
+                
+                if boleto_existente:
+                    # Atualizar boleto existente
+                    cur.execute("""
+                        UPDATE boletos SET
+                            status = %s,
+                            valor = %s,
+                            data_vencimento = %s,
+                            data_pagamento = %s,
+                            valor_pago = %s,
+                            boleto_url = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE asaas_payment_id = %s
+                    """, (
+                        pagamento.get("status"),
+                        pagamento.get("value"),
+                        pagamento.get("dueDate"),
+                        pagamento.get("paymentDate"),
+                        pagamento.get("paidValue"),
+                        pagamento.get("bankSlipUrl"),
+                        payment_id
+                    ))
+                else:
+                    # Inserir novo boleto
+                    cur.execute("""
+                        INSERT INTO boletos (
+                            locacao_id, asaas_payment_id, status, valor, 
+                            data_vencimento, data_pagamento, valor_pago, 
+                            boleto_url, descricao
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        locacao_id,
+                        payment_id,
+                        pagamento.get("status"),
+                        pagamento.get("value"),
+                        pagamento.get("dueDate"),
+                        pagamento.get("paymentDate"),
+                        pagamento.get("paidValue"),
+                        pagamento.get("bankSlipUrl"),
+                        pagamento.get("description", "Locação de Moto")
+                    ))
+            
+            get_db().commit()
+            return True
+            
+    except Exception as e:
+        get_db().rollback()
+        print(f"Erro ao sincronizar boletos: {e}")
+        return False
 
 # ---- ROTAS ----
 @app.route("/")
@@ -205,7 +297,7 @@ def clientes():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("SELECT * FROM clientes ORDER BY id DESC")
         clientes = cur.fetchall()
-    return render_template("clientes.html", clientes=clientes)
+        return render_template("clientes.html", clientes=clientes)
 
 
 @app.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
@@ -250,7 +342,7 @@ def editar_cliente(id):
             flash("Cliente não encontrado!", "error")
             return redirect(url_for("clientes"))
 
-    return render_template("editar_cliente.html", cliente=cliente)
+        return render_template("editar_cliente.html", cliente=cliente)
 
 
 @app.route("/clientes/<int:id>/excluir", methods=["POST"])
@@ -334,7 +426,7 @@ def cliente_habilitacao(id):
             flash("Cliente não encontrado.", "error")
             return redirect(url_for("clientes"))
 
-    return render_template("cliente_habilitacao.html", cliente=cliente)
+        return render_template("cliente_habilitacao.html", cliente=cliente)
 
 
 @app.route("/clientes/<int:id>/habilitacao/excluir", methods=["POST"])
@@ -394,7 +486,7 @@ def motos():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("SELECT * FROM motos ORDER BY id DESC")
         motos = cur.fetchall()
-    return render_template("motos.html", motos=motos)
+        return render_template("motos.html", motos=motos)
 
 
 @app.route("/motos/<int:id>/editar", methods=["GET", "POST"])
@@ -432,7 +524,7 @@ def editar_moto(id):
             flash("Moto não encontrada.", "error")
             return redirect(url_for("motos"))
 
-    return render_template("editar_moto.html", moto=moto)
+        return render_template("editar_moto.html", moto=moto)
 
 
 @app.route("/motos/<int:id>/excluir", methods=["POST"])
@@ -550,7 +642,7 @@ def moto_imagens(moto_id):
         cur.execute("SELECT * FROM moto_imagens WHERE moto_id = %s ORDER BY data_upload DESC", (moto_id,))
         imagens = cur.fetchall()
 
-    return render_template("moto_imagens.html", moto=moto, imagens=imagens)
+        return render_template("moto_imagens.html", moto=moto, imagens=imagens)
 
 
 @app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])
@@ -631,7 +723,7 @@ def moto_documento(moto_id):
 
             return redirect(url_for("moto_documento", moto_id=moto_id))
 
-    return render_template("moto_documento.html", moto=moto)
+        return render_template("moto_documento.html", moto=moto)
 
 
 @app.route("/motos/<int:moto_id>/documento/excluir", methods=["POST"])
@@ -726,7 +818,17 @@ def locacoes():
                 cur.execute("""
                     INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
                 """, (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id))
+                
+                locacao_id = cur.fetchone()["id"]
+
+                # 🔹 Inserir primeiro boleto na tabela boletos
+                if asaas_payment_id and boleto_url:
+                    cur.execute("""
+                        INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor, data_vencimento, boleto_url, descricao)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (locacao_id, asaas_payment_id, "PENDING", valor, data_inicio, boleto_url, "Locação de Moto"))
 
                 # Marcar moto como indisponível
                 cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
@@ -743,23 +845,27 @@ def locacoes():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT l.id, 
-                   c.nome AS cliente_nome, 
-                   m.modelo AS moto_modelo, 
-                   m.placa AS moto_placa,
-                   l.data_inicio, 
-                   l.data_fim, 
-                   l.cancelado,
-                   l.observacoes,
-                   l.contrato_pdf,
-                   l.boleto_url,
-                   l.pagamento_status,
-                   l.valor_pago,
-                   l.data_pagamento,
-                   l.frequencia_pagamento
+                c.nome AS cliente_nome, 
+                m.modelo AS moto_modelo, 
+                m.placa AS moto_placa,
+                l.data_inicio, 
+                l.data_fim, 
+                l.cancelado,
+                l.observacoes,
+                l.contrato_pdf,
+                l.boleto_url,
+                l.pagamento_status,
+                l.valor_pago,
+                l.data_pagamento,
+                l.frequencia_pagamento,
+                COUNT(b.id) as total_boletos,
+                COUNT(CASE WHEN b.status = 'RECEIVED' THEN 1 END) as boletos_pagos
             FROM locacoes l
             JOIN clientes c ON l.cliente_id = c.id
             JOIN motos m ON l.moto_id = m.id
+            LEFT JOIN boletos b ON l.id = b.locacao_id
             WHERE l.cancelado = FALSE
+            GROUP BY l.id, c.nome, m.modelo, m.placa
             ORDER BY l.data_inicio DESC
         """)
         locacoes = cur.fetchall()
@@ -770,7 +876,7 @@ def locacoes():
         cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel=TRUE")
         motos = cur.fetchall()
 
-    return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
+        return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
 @app.route("/locacoes/<int:id>/editar", methods=["GET", "POST"])
 def editar_locacao(id):
@@ -832,7 +938,9 @@ def editar_locacao(id):
 
             return redirect(url_for("locacoes"))
 
-        # GET
+        # GET - Sincronizar boletos antes de exibir
+        sincronizar_boletos_locacao(id)
+
         cur.execute("""
             SELECT l.*, c.nome as cliente_nome, m.modelo as moto_modelo, m.placa as moto_placa
             FROM locacoes l
@@ -845,7 +953,15 @@ def editar_locacao(id):
             flash("Locação não encontrada.", "error")
             return redirect(url_for("locacoes"))
 
-    return render_template("editar_locacao.html", locacao=locacao)
+        # Buscar boletos da locação
+        cur.execute("""
+            SELECT * FROM boletos 
+            WHERE locacao_id = %s 
+            ORDER BY data_vencimento DESC, created_at DESC
+        """, (id,))
+        boletos = cur.fetchall()
+
+        return render_template("editar_locacao.html", locacao=locacao, boletos=boletos)
 
 
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
@@ -879,17 +995,17 @@ def locacoes_canceladas():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT l.id, 
-                   c.nome AS cliente_nome, 
-                   m.modelo AS moto_modelo, 
-                   m.placa AS moto_placa,
-                   l.data_inicio, 
-                   l.data_fim, 
-                   l.observacoes,
-                   l.contrato_pdf,
-                   l.boleto_url,
-                   l.pagamento_status,
-                   l.valor_pago,
-                   l.data_pagamento
+                c.nome AS cliente_nome, 
+                m.modelo AS moto_modelo, 
+                m.placa AS moto_placa,
+                l.data_inicio, 
+                l.data_fim, 
+                l.observacoes,
+                l.contrato_pdf,
+                l.boleto_url,
+                l.pagamento_status,
+                l.valor_pago,
+                l.data_pagamento
             FROM locacoes l
             JOIN clientes c ON l.cliente_id = c.id
             JOIN motos m ON l.moto_id = m.id
@@ -898,7 +1014,7 @@ def locacoes_canceladas():
         """)
         canceladas = cur.fetchall()
 
-    return render_template("locacoes_canceladas.html", canceladas=canceladas)
+        return render_template("locacoes_canceladas.html", canceladas=canceladas)
 
 # === SERVIÇOS NAS LOCAÇÕES ===
 
@@ -949,7 +1065,7 @@ def servicos_locacao(locacao_id):
         """, (locacao_id,))
         servicos = cur.fetchall()
 
-    return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
+        return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
 
 
 @app.route("/locacoes/<int:locacao_id>/servicos/<int:servico_id>/excluir", methods=["POST"])
@@ -976,13 +1092,28 @@ def excluir_servico_locacao(locacao_id, servico_id):
 
     return redirect(url_for("servicos_locacao", locacao_id=locacao_id))
 
-# === WEBHOOK ASAAS (CORRIGIDO E ROBUSTO) ===
+# === SINCRONIZAÇÃO MANUAL DE BOLETOS ===
+
+@app.route("/locacoes/<int:id>/sincronizar_boletos", methods=["POST"])
+def sincronizar_boletos_manual(id):
+    """Rota para sincronização manual de boletos de uma locação"""
+    try:
+        if sincronizar_boletos_locacao(id):
+            flash("Boletos sincronizados com sucesso!", "success")
+        else:
+            flash("Erro ao sincronizar boletos. Verifique se a locação existe e tem cliente com Asaas ID.", "error")
+    except Exception as e:
+        flash(f"Erro ao sincronizar boletos: {e}", "error")
+    
+    return redirect(url_for("editar_locacao", id=id))
+
+# === WEBHOOK ASAAS (ATUALIZADO PARA TABELA BOLETOS) ===
 
 @app.route("/webhook/asaas", methods=["POST"])
 def webhook_asaas():
     """
     Endpoint que recebe notificações do Asaas.
-    Suporta verificação por HMAC-SHA256 ou token simples.
+    Atualiza tanto a tabela locacoes quanto a tabela boletos.
     """
     webhook_secret = app.config.get("ASAAS_WEBHOOK_SECRET")
     
@@ -1083,15 +1214,46 @@ def webhook_asaas():
             # Update locacao with payment info
             cur.execute("""
                 UPDATE locacoes SET
-                pagamento_status = %s,
-                asaas_payment_id = %s,
-                boleto_url = COALESCE(%s, boleto_url),
-                valor_pago = COALESCE(%s, valor_pago),
-                data_pagamento = COALESCE(%s, data_pagamento)
+                    pagamento_status = %s,
+                    asaas_payment_id = %s,
+                    boleto_url = COALESCE(%s, boleto_url),
+                    valor_pago = COALESCE(%s, valor_pago),
+                    data_pagamento = COALESCE(%s, data_pagamento)
                 WHERE id = %s
             """, (payment_status, asaas_payment_id, boleto_url, received_value, date_paid, locacao_id))
-            get_db().commit()
 
+            # 🔹 Update or insert boleto in boletos table
+            if asaas_payment_id:
+                cur.execute("SELECT id FROM boletos WHERE asaas_payment_id = %s", (asaas_payment_id,))
+                boleto_existente = cur.fetchone()
+                
+                if boleto_existente:
+                    # Update existing boleto
+                    cur.execute("""
+                        UPDATE boletos SET
+                            status = %s,
+                            valor = COALESCE(%s, valor),
+                            data_pagamento = %s,
+                            valor_pago = %s,
+                            boleto_url = COALESCE(%s, boleto_url),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE asaas_payment_id = %s
+                    """, (payment_status, valor, date_paid, received_value, boleto_url, asaas_payment_id))
+                else:
+                    # Insert new boleto
+                    cur.execute("""
+                        INSERT INTO boletos (
+                            locacao_id, asaas_payment_id, status, valor, 
+                            data_vencimento, data_pagamento, valor_pago, 
+                            boleto_url, descricao
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        locacao_id, asaas_payment_id, payment_status, valor,
+                        payment.get("dueDate"), date_paid, received_value,
+                        boleto_url, payment.get("description", "Locação de Moto")
+                    ))
+
+            get_db().commit()
             return jsonify({"ok": True, "locacao_id": locacao_id}), 200
 
     except Exception as e:

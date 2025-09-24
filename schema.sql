@@ -1,4 +1,4 @@
--- Schema MotoRental (limpo e padronizado)
+-- Schema MotoRental (com tabela boletos para histórico completo)
 
 CREATE TABLE clientes (
     id SERIAL PRIMARY KEY,
@@ -33,7 +33,7 @@ CREATE TABLE locacoes (
     observacoes TEXT,
     contrato_pdf VARCHAR(255),
 
-    -- integração com Asaas
+    -- integração com Asaas (campos legados - mantidos para compatibilidade)
     boleto_url TEXT,
     pagamento_status VARCHAR(50),
     valor_pago NUMERIC(10,2),
@@ -42,6 +42,19 @@ CREATE TABLE locacoes (
 
     -- frequência de pagamento
     frequencia_pagamento VARCHAR(20)
+);
+
+-- Nova tabela para histórico completo de boletos
+CREATE TABLE boletos (
+    id SERIAL PRIMARY KEY,
+    locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
+    asaas_payment_id VARCHAR(255) UNIQUE NOT NULL,
+    valor NUMERIC(10,2) NOT NULL,
+    due_date DATE NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    boleto_url TEXT,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE moto_imagens (
@@ -67,3 +80,10 @@ CREATE TABLE usuarios (
     senha TEXT NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE
 );
+
+-- Índices para performance
+CREATE INDEX idx_boletos_locacao_id ON boletos(locacao_id);
+CREATE INDEX idx_boletos_status ON boletos(status);
+CREATE INDEX idx_boletos_due_date ON boletos(due_date);
+CREATE INDEX idx_locacoes_cliente_id ON locacoes(cliente_id);
+CREATE INDEX idx_locacoes_moto_id ON locacoes(moto_id);
