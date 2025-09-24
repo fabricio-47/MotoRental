@@ -324,7 +324,8 @@ def editar_cliente(id):
 
                 cur.execute("""
                     UPDATE clientes
-                    SET nome=%s, email=%s, telefone=%s, cpf=%s, endereco=%s, data_nascimento=%s, observacoes=%s
+                    SET nome=%s, email=%s, telefone=%s, cpf=%s, endereco=%s,
+                        data_nascimento=%s, observacoes=%s
                     WHERE id=%s
                 """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, id))
                 get_db().commit()
@@ -342,7 +343,19 @@ def editar_cliente(id):
             flash("Cliente não encontrado!", "error")
             return redirect(url_for("clientes"))
 
-        return render_template("editar_cliente.html", cliente=cliente)
+        # Buscar boletos desse cliente (mesmo de locações canceladas)
+        cur.execute("""
+            SELECT b.*, l.cancelado
+            FROM boletos b
+            JOIN locacoes l ON b.locacao_id = l.id
+            WHERE l.cliente_id = %s
+            ORDER BY b.data_vencimento DESC
+        """, (id,))
+        boletos_cliente = cur.fetchall()
+
+        return render_template("editar_cliente.html",
+                               cliente=cliente,
+                               boletos_cliente=boletos_cliente)
 
 
 @app.route("/clientes/<int:id>/excluir", methods=["POST"])

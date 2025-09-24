@@ -16,7 +16,7 @@
 </div>
 {% endif %}
 
-<div class="card shadow-sm">
+<div class="card shadow-sm mb-4">
   <div class="card-header bg-primary text-white">
     <i class="fa-solid fa-user-pen me-1"></i> Dados do Cliente
   </div>
@@ -88,6 +88,51 @@
         </a>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Histórico de Boletos do Cliente -->
+<div class="card shadow-sm">
+  <div class="card-header bg-dark text-white">
+    <i class="fa-solid fa-file-invoice-dollar me-1"></i> Histórico de Boletos
+  </div>
+  <div class="card-body">
+    {% if boletos_cliente %}
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Locação</th>
+            <th>Vencimento</th>
+            <th>Valor</th>
+            <th>Status</th>
+            <th>Pago em</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for boleto in boletos_cliente %}
+          <tr class="{% if boleto.status == 'OVERDUE' %}table-danger{% elif boleto.status == 'RECEIVED' %}table-success{% endif %}">
+            <td>#{{ boleto.locacao_id }}
+              {% if boleto.cancelado %}<span class="badge bg-danger ms-1">Locação Cancelada</span>{% endif %}
+            </td>
+            <td>{{ boleto.data_vencimento }}</td>
+            <td>R$ {{ boleto.valor }}</td>
+            <td>{{ boleto.status }}</td>
+            <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
+            <td>
+              {% if boleto.boleto_url %}
+              <a href="{{ boleto.boleto_url }}" target="_blank" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-up-right-from-square"></i> Ver
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-muted">Nenhum boleto encontrado para este cliente.</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
