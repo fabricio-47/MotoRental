@@ -33,11 +33,12 @@ CREATE TABLE locacoes (
     observacoes TEXT,
     contrato_pdf VARCHAR(255),
 
-    -- integração com Asaas (campos legados - mantidos para compatibilidade)
+    -- integração com Asaas
+    valor NUMERIC(10,2),
     boleto_url TEXT,
     pagamento_status VARCHAR(50),
     valor_pago NUMERIC(10,2),
-    data_pagamento TIMESTAMP,
+    data_pagamento DATE,
     asaas_payment_id VARCHAR(255),
 
     -- frequência de pagamento
@@ -49,12 +50,15 @@ CREATE TABLE boletos (
     id SERIAL PRIMARY KEY,
     locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
     asaas_payment_id VARCHAR(255) UNIQUE NOT NULL,
-    valor NUMERIC(10,2) NOT NULL,
-    due_date DATE NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING',
+    valor NUMERIC(10,2),
+    valor_pago NUMERIC(10,2),
     boleto_url TEXT,
-    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    descricao TEXT,
+    data_vencimento DATE,
+    data_pagamento DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE moto_imagens (
@@ -84,6 +88,6 @@ CREATE TABLE usuarios (
 -- Índices para performance
 CREATE INDEX idx_boletos_locacao_id ON boletos(locacao_id);
 CREATE INDEX idx_boletos_status ON boletos(status);
-CREATE INDEX idx_boletos_due_date ON boletos(due_date);
+CREATE INDEX idx_boletos_due_date ON boletos(data_vencimento);
 CREATE INDEX idx_locacoes_cliente_id ON locacoes(cliente_id);
 CREATE INDEX idx_locacoes_moto_id ON locacoes(moto_id);
