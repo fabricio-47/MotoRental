@@ -16,57 +16,59 @@
   </div>
   <div class="card-body">
     <form method="POST" enctype="multipart/form-data">
-    <div class="row g-3">
-    <div class="col-md-4">
-    <label for="cliente_id" class="form-label">Cliente</label>
-    <select name="cliente_id" class="form-select" required>
-    <option value="">Selecione</option>
-    {% for cliente in clientes %}
-    <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
-    {% endfor %}
-    </select>
-    </div>
-    <div class="col-md-4">
-    <label for="moto_id" class="form-label">Moto (Modelo - Placa)</label>
-    <select name="moto_id" class="form-select" required>
-    <option value="">Selecione</option>
-    {% for moto in motos %}
-    <option value="{{ moto.id }}">{{ moto.modelo }} - {{ moto.placa }}</option>
-    {% endfor %}
-    </select>
-    </div>
-    <div class="col-md-4">
-    <label for="data_inicio" class="form-label">Data Início</label>
-    <input type="date" name="data_inicio" class="form-control" required>
-    </div>
-    <div class="col-md-3">
-    <label for="valor" class="form-label">Valor (R$)</label>
-    <input type="number" name="valor" min="0" step="0.01" class="form-control">
-    </div>
-    <div class="col-md-3">
-    <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
-    <select name="frequencia_pagamento" class="form-select" required>
-    <option value="">Selecione</option>
-    <option value="semanal">Semanal</option>
-    <option value="quinzenal">Quinzenal</option>
-    <option value="mensal">Mensal</option>
-    <option value="trimestral">Trimestral</option>
-    </select>
-    </div>
-    <div class="col-md-6">
-    <label for="observacoes" class="form-label">Observações</label>
-    <textarea name="observacoes" class="form-control"></textarea>
-    </div>
-    <div class="col-md-12">
-    <label for="contrato_pdf" class="form-label">Contrato (PDF)</label>
-    <input type="file" name="contrato_pdf" accept="application/pdf" class="form-control">
-    </div>
-    <div class="col-12">
-    <button type="submit" class="btn btn-success mt-2">
-    <i class="fa-solid fa-save me-1"></i> Cadastrar Locação
-    </button>
-    </div>
-    </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label for="cliente_id" class="form-label">Cliente</label>
+          <select name="cliente_id" class="form-select" required>
+            <option value="">Selecione</option>
+            {% for cliente in clientes %}
+            <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="moto_id" class="form-label">Moto (Modelo - Placa)</label>
+          <select name="moto_id" class="form-select" required>
+            <option value="">Selecione</option>
+            {% for moto in motos %}
+            <option value="{{ moto.id }}">{{ moto.modelo }} - {{ moto.placa }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="data_inicio" class="form-label">Data Início</label>
+          <input type="date" name="data_inicio" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label for="valor" class="form-label">Valor (R$)</label>
+          <input type="number" name="valor" min="0" step="0.01" class="form-control">
+        </div>
+        <div class="col-md-3">
+          <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
+          <select name="frequencia_pagamento" class="form-select" required>
+            <option value="">Selecione...</option>
+            <option value="WEEKLY">Semanal</option>
+            <option value="BIWEEKLY">Quinzenal</option>
+            <option value="MONTHLY">Mensal</option>
+            <option value="QUARTERLY">Trimestral</option>
+            <option value="YEARLY">Anual</option>
+            <option value="CUSTOM">Personalizado</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label for="observacoes" class="form-label">Observações</label>
+          <textarea name="observacoes" class="form-control"></textarea>
+        </div>
+        <div class="col-md-12">
+          <label for="contrato_pdf" class="form-label">Contrato (PDF)</label>
+          <input type="file" name="contrato_pdf" accept="application/pdf" class="form-control">
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-success mt-2">
+            <i class="fa-solid fa-save me-1"></i> Cadastrar Locação
+          </button>
+        </div>
+      </div>
     </form>
   </div>
 </div>
@@ -78,94 +80,102 @@
   </div>
   <div class="card-body">
     <div class="table-responsive">
-    <table class="table table-striped table-hover">
-    <thead class="table-dark">
-    <tr>
-    <th>ID</th>
-    <th>Cliente</th>
-    <th>Moto</th>
-    <th>Placa</th>
-    <th>Início</th>
-    <th>Fim</th>
-    <th>Frequência</th>
-    <th>Contrato</th>
-    <th>Boleto</th>
-    <th>Status</th>
-    <th>Valor Pago</th>
-    <th>Ações</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for locacao in locacoes %}
-    <tr>
-    <td>{{ locacao.id }}</td>
-    <td>{{ locacao.cliente_nome }}</td>
-    <td>{{ locacao.moto_modelo }}</td>
-    <td>{{ locacao.moto_placa }}</td>
-    <td>{{ locacao.data_inicio }}</td>
-    <td>{{ locacao.data_fim or '-' }}</td>
-    <td>{{ locacao.frequencia_pagamento or '-' }}</td>
-    <td>
-    {% if locacao.contrato_pdf %}
-    <a class="btn btn-sm btn-outline-dark"
-    href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
-    target="_blank" title="Ver Contrato">
-    <i class="fa-solid fa-file-pdf"></i>
-    </a>
-    {% else %}
-    <span class="text-muted">—</span>
-    {% endif %}
-    </td>
-    <td>
-    {% if locacao.boleto_url %}
-    <a class="btn btn-sm btn-success" href="{{ locacao.boleto_url }}" target="_blank" title="Ver Boleto">
-    <i class="fa-solid fa-barcode"></i>
-    </a>
-    {% else %}
-    <span class="text-muted">—</span>
-    {% endif %}
-    </td>
-    <td>
-    {% if locacao.pagamento_status %}
-    <span class="badge bg-{% if locacao.pagamento_status == 'RECEIVED' %}success{% elif locacao.pagamento_status == 'PENDING' %}warning{% elif locacao.pagamento_status == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
-    {{ locacao.pagamento_status }}
-    </span>
-    {% else %}
-    <span class="text-muted">—</span>
-    {% endif %}
-    </td>
-    <td>
-    {% if locacao.valor_pago %}
-    R$ {{ "%.2f"|format(locacao.valor_pago) }}
-    {% else %}
-    <span class="text-muted">—</span>
-    {% endif %}
-    </td>
-    <td>
-    <div class="btn-group" role="group">
-    <a href="{{ url_for('editar_locacao', id=locacao.id) }}" class="btn btn-sm btn-warning" title="Editar">
-    <i class="fa-solid fa-edit"></i>
-    </a>
-    <form action="{{ url_for('cancelar_locacao', id=locacao.id) }}" method="POST" style="display:inline;">
-    <button type="submit" class="btn btn-sm btn-danger"
-    onclick="return confirm('Tem certeza que deseja cancelar esta locação?')" title="Cancelar">
-    <i class="fa-solid fa-ban"></i>
-    </button>
-    </form>
-    <a href="{{ url_for('servicos_locacao', locacao_id=locacao.id) }}"
-    class="btn btn-sm btn-info" title="Serviços">
-    <i class="fa-solid fa-wrench"></i>
-    </a>
-    </div>
-    </td>
-    </tr>
-    {% else %}
-    <tr>
-    <td colspan="12" class="text-center text-muted">Nenhuma locação ativa encontrada.</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-    </table>
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Moto</th>
+            <th>Placa</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Frequência</th>
+            <th>Contrato</th>
+            <th>Boleto</th>
+            <th>Status</th>
+            <th>Valor Pago</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for locacao in locacoes %}
+          <tr>
+            <td>{{ locacao.id }}</td>
+            <td>{{ locacao.cliente_nome }}</td>
+            <td>{{ locacao.moto_modelo }}</td>
+            <td>{{ locacao.moto_placa }}</td>
+            <td>{{ locacao.data_inicio }}</td>
+            <td>{{ locacao.data_fim or '-' }}</td>
+            <td>
+              {% if locacao.frequencia_pagamento == 'WEEKLY' %}Semanal
+              {% elif locacao.frequencia_pagamento == 'BIWEEKLY' %}Quinzenal
+              {% elif locacao.frequencia_pagamento == 'MONTHLY' %}Mensal
+              {% elif locacao.frequencia_pagamento == 'QUARTERLY' %}Trimestral
+              {% elif locacao.frequencia_pagamento == 'YEARLY' %}Anual
+              {% elif locacao.frequencia_pagamento == 'CUSTOM' %}Personalizado
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if locacao.contrato_pdf %}
+              <a class="btn btn-sm btn-outline-dark"
+                 href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
+                 target="_blank" title="Ver Contrato">
+                <i class="fa-solid fa-file-pdf"></i>
+              </a>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if locacao.boleto_url %}
+              <a class="btn btn-sm btn-success" href="{{ locacao.boleto_url }}" target="_blank" title="Ver Boleto">
+                <i class="fa-solid fa-barcode"></i>
+              </a>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if locacao.pagamento_status %}
+              <span class="badge bg-{% if locacao.pagamento_status == 'RECEIVED' %}success{% elif locacao.pagamento_status == 'PENDING' %}warning{% elif locacao.pagamento_status == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
+                {{ locacao.pagamento_status }}
+              </span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if locacao.valor_pago %}
+              R$ {{ "%.2f"|format(locacao.valor_pago) }}
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <a href="{{ url_for('editar_locacao', id=locacao.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                  <i class="fa-solid fa-edit"></i>
+                </a>
+                <form action="{{ url_for('cancelar_locacao', id=locacao.id) }}" method="POST" style="display:inline;">
+                  <button type="submit" class="btn btn-sm btn-danger"
+                          onclick="return confirm('Tem certeza que deseja cancelar esta locação?')" title="Cancelar">
+                    <i class="fa-solid fa-ban"></i>
+                  </button>
+                </form>
+                <a href="{{ url_for('servicos_locacao', locacao_id=locacao.id) }}"
+                   class="btn btn-sm btn-info" title="Serviços">
+                  <i class="fa-solid fa-wrench"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="12" class="text-center text-muted">Nenhuma locação ativa encontrada.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

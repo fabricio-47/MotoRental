@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <h2>Editar Locação</h2>
 
-    <!-- Botão de sincronizar boletos corrigido -->
+    <!-- Botão de sincronizar boletos -->
     <a href="{{ url_for('sincronizar_boletos_manual', id=locacao.id) }}" 
        class="btn btn-outline-info btn-sm me-2">
         🔄 Sincronizar Boletos
@@ -32,8 +32,12 @@
         <div class="mb-3">
             <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
             <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select">
-                <option value="mensal" {% if locacao.frequencia_pagamento=="mensal" %}selected{% endif %}>Mensal</option>
-                <option value="semanal" {% if locacao.frequencia_pagamento=="semanal" %}selected{% endif %}>Semanal</option>
+                <option value="WEEKLY" {% if locacao.frequencia_pagamento=="WEEKLY" %}selected{% endif %}>Semanal</option>
+                <option value="BIWEEKLY" {% if locacao.frequencia_pagamento=="BIWEEKLY" %}selected{% endif %}>Quinzenal</option>
+                <option value="MONTHLY" {% if locacao.frequencia_pagamento=="MONTHLY" %}selected{% endif %}>Mensal</option>
+                <option value="QUARTERLY" {% if locacao.frequencia_pagamento=="QUARTERLY" %}selected{% endif %}>Trimestral</option>
+                <option value="YEARLY" {% if locacao.frequencia_pagamento=="YEARLY" %}selected{% endif %}>Anual</option>
+                <option value="CUSTOM" {% if locacao.frequencia_pagamento=="CUSTOM" %}selected{% endif %}>Personalizado</option>
             </select>
         </div>
 
@@ -65,7 +69,17 @@
             <tr>
                 <td>{{ boleto.data_vencimento }}</td>
                 <td>R$ {{ boleto.valor }}</td>
-                <td>{{ boleto.status }}</td>
+                <td>
+                  {% if boleto.status == 'RECEIVED' %}
+                    <span class="badge bg-success">Pago</span>
+                  {% elif boleto.status == 'PENDING' %}
+                    <span class="badge bg-warning text-dark">Pendente</span>
+                  {% elif boleto.status == 'OVERDUE' %}
+                    <span class="badge bg-danger">Vencido</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ boleto.status }}</span>
+                  {% endif %}
+                </td>
                 <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
                 <td>
                     {% if boleto.boleto_url %}
