@@ -1,94 +1,232 @@
 {% extends "base.html" %}
-{% block title %}Locações Canceladas{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2>Locações Canceladas</h2>
-  <a class="btn btn-outline-secondary" href="{{ url_for('locacoes') }}">
-    <i class="fa-solid fa-arrow-left me-1"></i> Voltar para Ativas
-  </a>
-</div>
 
-<div class="card">
-  <div class="card-header bg-dark text-white">
-    <i class="fa-solid fa-ban me-1"></i> Locações Canceladas
-  </div>
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead class="table-dark">
-          <tr>
-            <th>ID</th>
-            <th>Cliente</th>
-            <th>Moto</th>
-            <th>Placa</th>
-            <th>Início</th>
-            <th>Fim</th>
-            <th>Contrato</th>
-            <th>Boleto</th>
-            <th>Status</th>
-            <th>Valor Pago</th>
-            <th>Data Pagamento</th>
-            <th>Observações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for locacao in canceladas %}
-          <tr>
-            <td>{{ locacao.id }}</td>
-            <td>{{ locacao.cliente_nome }}</td>
-            <td>{{ locacao.moto_modelo }}</td>
-            <td>{{ locacao.moto_placa }}</td>
-            <td>{{ locacao.data_inicio }}</td>
-            <td>{{ locacao.data_fim or '-' }}</td>
-            <td>
-              {% if locacao.contrato_pdf %}
-                <a class="btn btn-sm btn-outline-dark"
-                   href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
-                   target="_blank" title="Ver Contrato">
-                  <i class="fa-solid fa-file-pdf"></i>
-                </a>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if locacao.boleto_url %}
-                <a class="btn btn-sm btn-success"
-                  href="{{ locacao.boleto_url }}"
-                  target="_blank" title="Ver Boleto">
-                  <i class="fa-solid fa-barcode"></i>
-                </a>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if locacao.pagamento_status %}
-                <span class="badge bg-{% if locacao.pagamento_status == 'RECEIVED' %}success{% elif locacao.pagamento_status == 'PENDING' %}warning{% elif locacao.pagamento_status == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
-                  {{ locacao.pagamento_status }}
-                </span>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if locacao.valor_pago %}
-                R$ {{ "%.2f"|format(locacao.valor_pago) }}
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>{{ locacao.data_pagamento or '—' }}</td>
-            <td>{{ locacao.observacoes or '—' }}</td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="12" class="text-center text-muted">Nenhuma locação cancelada encontrada.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+{% block title %}Locações Canceladas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-ban text-danger me-2"></i>
+                        Locações Canceladas
+                    </h3>
+                    <a href="{{ url_for('locacoes') }}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Voltar para Locações Ativas
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if canceladas %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Cliente</th>
+                                        <th>Moto</th>
+                                        <th>Período</th>
+                                        <th>Valor</th>
+                                        <th>Frequência</th>
+                                        <th>Tipo</th>
+                                        <th>Boletos</th>
+                                        <th>Status Pagamento</th>
+                                        <th>Total Recebido</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for loc in canceladas %}
+                                    <tr>
+                                        <td>
+                                            <strong>#{{ loc.id }}</strong>
+                                        </td>
+                                        <td>{{ loc.cliente_nome }}</td>
+                                        <td>
+                                            <strong>{{ loc.moto_modelo }}</strong><br>
+                                            <small class="text-muted">{{ loc.moto_placa }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>Início:</strong> {{ loc.data_inicio.strftime('%d/%m/%Y') if loc.data_inicio else 'N/A' }}<br>
+                                            <strong>Fim:</strong> 
+                                            {% if loc.data_fim %}
+                                                <span class="text-danger">{{ loc.data_fim.strftime('%d/%m/%Y') }}</span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>R$ {{ "%.2f"|format(loc.valor) }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ loc.frequencia_pagamento|title }}</span>
+                                        </td>
+                                        <td>
+                                            {% if loc.asaas_subscription_id %}
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-sync-alt me-1"></i>
+                                                    Assinatura
+                                                </span>
+                                                <br><small class="text-muted">ID: {{ loc.asaas_subscription_id[:8] }}...</small>
+                                            {% elif loc.asaas_payment_id %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-file-invoice me-1"></i>
+                                                    Pagamento Único
+                                                </span>
+                                                <br><small class="text-muted">ID: {{ loc.asaas_payment_id[:8] }}...</small>
+                                            {% else %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-question me-1"></i>
+                                                    Manual
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if loc.total_boletos > 0 %}
+                                                <div class="small">
+                                                    <div><strong>Total:</strong> {{ loc.total_boletos }}</div>
+                                                    {% if loc.boletos_pagos > 0 %}
+                                                        <div class="text-success">
+                                                            <i class="fas fa-check-circle me-1"></i>
+                                                            Pagos: {{ loc.boletos_pagos }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if loc.boletos_pendentes > 0 %}
+                                                        <div class="text-warning">
+                                                            <i class="fas fa-clock me-1"></i>
+                                                            Pendentes: {{ loc.boletos_pendentes }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if loc.boletos_vencidos > 0 %}
+                                                        <div class="text-danger">
+                                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                                            Vencidos: {{ loc.boletos_vencidos }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if loc.boletos_cancelados > 0 %}
+                                                        <div class="text-muted">
+                                                            <i class="fas fa-ban me-1"></i>
+                                                            Cancelados: {{ loc.boletos_cancelados }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">Nenhum boleto</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if loc.status_ultimo_boleto %}
+                                                {% if loc.status_ultimo_boleto == 'RECEIVED' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>
+                                                        Pago
+                                                    </span>
+                                                {% elif loc.status_ultimo_boleto == 'PENDING' %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-clock me-1"></i>
+                                                        Pendente
+                                                    </span>
+                                                {% elif loc.status_ultimo_boleto == 'OVERDUE' %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                                        Vencido
+                                                    </span>
+                                                {% elif loc.status_ultimo_boleto == 'CANCELLED' %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-ban me-1"></i>
+                                                        Cancelado
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ loc.status_ultimo_boleto }}</span>
+                                                {% endif %}
+                                                
+                                                {% if loc.ultimo_vencimento %}
+                                                    <br><small class="text-muted">
+                                                        Último: {{ loc.ultimo_vencimento.strftime('%d/%m/%Y') }}
+                                                    </small>
+                                                {% endif %}
+                                            {% elif loc.pagamento_status %}
+                                                {% if loc.pagamento_status == 'RECEIVED' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>
+                                                        Pago
+                                                    </span>
+                                                {% elif loc.pagamento_status == 'CANCELLED' %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-ban me-1"></i>
+                                                        Cancelado
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">{{ loc.pagamento_status }}</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if loc.total_recebido_boletos > 0 %}
+                                                <strong class="text-success">R$ {{ "%.2f"|format(loc.total_recebido_boletos) }}</strong>
+                                            {% elif loc.valor_pago %}
+                                                <strong class="text-success">R$ {{ "%.2f"|format(loc.valor_pago) }}</strong>
+                                            {% else %}
+                                                <span class="text-muted">R$ 0,00</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group-vertical btn-group-sm" role="group">
+                                                {% if loc.contrato_pdf %}
+                                                    <a href="{{ url_for('uploaded_contract', filename=loc.contrato_pdf) }}" 
+                                                       class="btn btn-outline-primary btn-sm" target="_blank">
+                                                        <i class="fas fa-file-pdf me-1"></i>
+                                                        Contrato
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                {% if loc.url_ultimo_boleto %}
+                                                    <a href="{{ loc.url_ultimo_boleto }}" 
+                                                       class="btn btn-outline-info btn-sm" target="_blank">
+                                                        <i class="fas fa-barcode me-1"></i>
+                                                        Último Boleto
+                                                    </a>
+                                                {% elif loc.boleto_url %}
+                                                    <a href="{{ loc.boleto_url }}" 
+                                                       class="btn btn-outline-info btn-sm" target="_blank">
+                                                        <i class="fas fa-barcode me-1"></i>
+                                                        Boleto
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                {% if loc.total_boletos > 0 %}
+                                                    <a href="{{ url_for('boletos_locacao', locacao_id=loc.id) }}" 
+                                                       class="btn btn-outline-secondary btn-sm">
+                                                        <i class="fas fa-list me-1"></i>
+                                                        Ver Boletos ({{ loc.total_boletos }})
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <a href="{{ url_for('servicos_locacao', locacao_id=loc.id) }}" 
+                                                   class="btn btn-outline-warning btn-sm">
+                                                    <i class="fas fa-tools me-1"></i>
+                                                    Serviços
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-smile fa-3x text-success mb-3"></i>
+                            <h4>Nenhuma locação cancelada!</h4>
+                            <p class="text-muted">Todas as locações estão ativas ou não há registros de cancelamento.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 {% endblock %}

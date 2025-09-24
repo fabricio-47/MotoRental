@@ -125,22 +125,22 @@ def sincronizar_boletos_locacao(locacao_id):
                 WHERE l.id = %s
             """, (locacao_id,))
             locacao = cur.fetchone()
-            
+
             if not locacao or not locacao["asaas_id"]:
                 return False
-            
+
             # Buscar pagamentos no Asaas
             pagamentos_asaas = buscar_pagamentos_asaas(locacao["asaas_id"])
-            
+
             for pagamento in pagamentos_asaas:
                 payment_id = pagamento.get("id")
                 if not payment_id:
                     continue
-                
+
                 # Verificar se o boleto já existe na tabela
                 cur.execute("SELECT id FROM boletos WHERE asaas_payment_id = %s", (payment_id,))
                 boleto_existente = cur.fetchone()
-                
+
                 if boleto_existente:
                     # Atualizar boleto existente
                     cur.execute("""
@@ -166,8 +166,8 @@ def sincronizar_boletos_locacao(locacao_id):
                     # Inserir novo boleto
                     cur.execute("""
                         INSERT INTO boletos (
-                            locacao_id, asaas_payment_id, status, valor, 
-                            data_vencimento, data_pagamento, valor_pago, 
+                            locacao_id, asaas_payment_id, status, valor,
+                            data_vencimento, data_pagamento, valor_pago,
                             boleto_url, descricao
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
@@ -181,14 +181,54 @@ def sincronizar_boletos_locacao(locacao_id):
                         pagamento.get("bankSlipUrl"),
                         pagamento.get("description", "Locação de Moto")
                     ))
-            
+
             get_db().commit()
             return True
-            
+
     except Exception as e:
         get_db().rollback()
         print(f"Erro ao sincronizar boletos: {e}")
         return False
+
+# === Helpers para cancelamento no Asaas ===
+
+def cancelar_assinatura_asaas(subscription_id: str):
+    """
+    Cancela uma assinatura no Asaas.
+    Retorna (ok: bool, mensagem: str).
+    """
+    try:
+        r = requests.delete(f"{ASAAS_BASE_URL}/subscriptions/{subscription_id}", headers=asaas_headers, timeout=15)
+        if r.status_code in (200, 204):
+            return True, "Assinatura cancelada."
+        data = {}
+        try:
+            data = r.json()
+        except Exception:
+            pass
+        msg = data.get("errors", [{}])[0].get("description") if isinstance(data, dict) else r.text
+        return False, f"Erro ao cancelar assinatura: {msg or r.text}"
+    except Exception as ex:
+        return False, f"Exceção ao cancelar assinatura: {ex}"
+
+def cancelar_pagamento_asaas(payment_id: str):
+    """
+    Cancela um pagamento pendente no Asaas.
+    Retorna (ok: bool, mensagem: str).
+    """
+    try:
+        r = requests.delete(f"{ASAAS_BASE_URL}/payments/{payment_id}", headers=asaas_headers, timeout=15)
+        if r.status_code in (200, 204):
+            return True, "Pagamento cancelado."
+        data = {}
+        try:
+            data = r.json()
+        except Exception:
+            pass
+        msg = data.get("errors", [{}])[0].get("description") if isinstance(data, dict) else r.text
+        return False, f"Erro ao cancelar pagamento: {msg or r.text}"
+    except Exception as ex:
+        return False, f"Exceção ao cancelar pagamento: {ex}"
 
 # ---- ROTAS ----
 @app.route("/")
@@ -238,13 +278,13 @@ def dashboard():
         cur.execute("SELECT COUNT(*) AS total FROM locacoes WHERE cancelado = TRUE")
         locacoes_canceladas = cur.fetchone()["total"]
 
-    return render_template(
-        "dashboard.html",
-        total_clientes=total_clientes,
-        total_motos=total_motos,
-        locacoes_ativas=locacoes_ativas,
-        locacoes_canceladas=locacoes_canceladas
-    )
+        return render_template(
+            "dashboard.html",
+            total_clientes=total_clientes,
+            total_motos=total_motos,
+            locacoes_ativas=locacoes_ativas,
+            locacoes_canceladas=locacoes_canceladas
+        )
 
 # === CLIENTES (CRUD + Asaas + Habilitação) ===
 
@@ -298,7 +338,6 @@ def clientes():
         cur.execute("SELECT * FROM clientes ORDER BY id DESC")
         clientes = cur.fetchall()
         return render_template("clientes.html", clientes=clientes)
-
 
 @app.route("/clientes/<int:id>/editar", methods=["GET", "POST"])
 def editar_cliente(id):
@@ -354,9 +393,8 @@ def editar_cliente(id):
         boletos_cliente = cur.fetchall()
 
         return render_template("editar_cliente.html",
-                               cliente=cliente,
-                               boletos_cliente=boletos_cliente)
-
+                             cliente=cliente,
+                             boletos_cliente=boletos_cliente)
 
 @app.route("/clientes/<int:id>/excluir", methods=["POST"])
 def excluir_cliente(id):
@@ -389,7 +427,6 @@ def excluir_cliente(id):
         flash(f"Erro ao excluir cliente: {e}", "error")
 
     return redirect(url_for("clientes"))
-
 
 # ==== HABILITAÇÃO DO CLIENTE ====
 
@@ -440,7 +477,6 @@ def cliente_habilitacao(id):
             return redirect(url_for("clientes"))
 
         return render_template("cliente_habilitacao.html", cliente=cliente)
-
 
 @app.route("/clientes/<int:id>/habilitacao/excluir", methods=["POST"])
 def excluir_habilitacao(id):
@@ -501,7 +537,6 @@ def motos():
         motos = cur.fetchall()
         return render_template("motos.html", motos=motos)
 
-
 @app.route("/motos/<int:id>/editar", methods=["GET", "POST"])
 def editar_moto(id):
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -538,7 +573,6 @@ def editar_moto(id):
             return redirect(url_for("motos"))
 
         return render_template("editar_moto.html", moto=moto)
-
 
 @app.route("/motos/<int:id>/excluir", methods=["POST"])
 def excluir_moto(id):
@@ -657,7 +691,6 @@ def moto_imagens(moto_id):
 
         return render_template("moto_imagens.html", moto=moto, imagens=imagens)
 
-
 @app.route("/motos/<int:moto_id>/imagens/<int:imagem_id>/excluir", methods=["POST"])
 def excluir_imagem_moto(moto_id, imagem_id):
     try:
@@ -738,7 +771,6 @@ def moto_documento(moto_id):
 
         return render_template("moto_documento.html", moto=moto)
 
-
 @app.route("/motos/<int:moto_id>/documento/excluir", methods=["POST"])
 def excluir_documento_moto(moto_id):
     try:
@@ -775,7 +807,7 @@ def locacoes():
         moto_id = request.form["moto_id"]
         data_inicio = request.form["data_inicio"]
         observacoes = (request.form.get("observacoes") or "").strip()
-        valor = request.form.get("valor") or 0
+        valor = float(request.form.get("valor") or 0)
         frequencia_pagamento = request.form.get("frequencia_pagamento")
 
         # Validação da frequência (precisa estar dentro do POST)
@@ -808,35 +840,77 @@ def locacoes():
                         file.save(contrato_path)
                         contrato_pdf = filename
 
-                # 🔹 Cria cobrança no Asaas
+                # Buscar cliente para pegar o Asaas ID
                 cur.execute("SELECT asaas_id FROM clientes WHERE id=%s", (cliente_id,))
                 cliente = cur.fetchone()
+
+                if not cliente or not cliente["asaas_id"]:
+                    flash("Cliente não encontrado ou não integrado ao Asaas.", "error")
+                    if contrato_pdf and contrato_path and os.path.exists(contrato_path):
+                        os.remove(contrato_path)
+                    return redirect(url_for("locacoes"))
+
+                # Inicializar variáveis
                 boleto_url = None
                 asaas_payment_id = None
-                
-                if cliente and cliente["asaas_id"]:
+                asaas_subscription_id = None
+
+                # Se for mensal ou semanal → cria assinatura
+                if frequencia_pagamento in ["mensal", "semanal"]:
+                    ciclo = "MONTHLY" if frequencia_pagamento == "mensal" else "WEEKLY"
+                    subscription_data = {
+                        "customer": cliente["asaas_id"],
+                        "billingType": "BOLETO",
+                        "value": valor,
+                        "nextDueDate": data_inicio,
+                        "cycle": ciclo,
+                        "description": f"Locação da moto {moto_id}"
+                    }
+
+                    resp = requests.post(
+                        f"{ASAAS_BASE_URL}/subscriptions",
+                        headers=asaas_headers,
+                        json=subscription_data
+                    ).json()
+
+                    if "errors" in resp:
+                        msg = resp["errors"][0].get("description", "Erro ao criar assinatura.")
+                        flash(f"Erro no Asaas: {msg}", "error")
+                        if contrato_pdf and contrato_path and os.path.exists(contrato_path):
+                            os.remove(contrato_path)
+                        return redirect(url_for("locacoes"))
+
+                    asaas_subscription_id = resp.get("id")
+
+                else:
+                    # Cobrança avulsa (única)
                     cobranca = criar_cobranca_asaas(cliente["asaas_id"], valor, data_inicio)
                     if "errors" in cobranca:
                         msg = cobranca["errors"][0].get("description", "Erro ao gerar boleto.")
                         flash(f"Erro no Asaas: {msg}", "error")
-                        # Remove contrato salvo se houver erro
                         if contrato_pdf and contrato_path and os.path.exists(contrato_path):
                             os.remove(contrato_path)
                         return redirect(url_for("locacoes"))
-                    
-                    boleto_url = cobranca.get("bankSlipUrl")
-                    asaas_payment_id = cobranca.get("id")  # 🔹 salvar ID do pagamento
 
-                # Inserir locação com valor e frequencia_pagamento
+                    boleto_url = cobranca.get("bankSlipUrl")
+                    asaas_payment_id = cobranca.get("id")
+
+                # Inserir locação com assinatura ou pagamento único
                 cur.execute("""
-                    INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    INSERT INTO locacoes (cliente_id, moto_id, data_inicio, observacoes, valor,
+                                          frequencia_pagamento, contrato_pdf, boleto_url,
+                                          asaas_payment_id, asaas_subscription_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
-                """, (cliente_id, moto_id, data_inicio, observacoes, valor, frequencia_pagamento, contrato_pdf, boleto_url, asaas_payment_id))
-                
+                """, (
+                    cliente_id, moto_id, data_inicio, observacoes, valor,
+                    frequencia_pagamento, contrato_pdf, boleto_url,
+                    asaas_payment_id, asaas_subscription_id
+                ))
+
                 locacao_id = cur.fetchone()["id"]
 
-                # 🔹 Inserir primeiro boleto na tabela boletos
+                # Se foi pagamento único, inserir primeiro boleto na tabela boletos
                 if asaas_payment_id and boleto_url:
                     cur.execute("""
                         INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor, data_vencimento, boleto_url, descricao)
@@ -847,7 +921,11 @@ def locacoes():
                 cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
                 get_db().commit()
 
-                flash("Locação criada com sucesso!", "success")
+                if asaas_subscription_id:
+                    flash("Locação com assinatura criada com sucesso! Os boletos serão gerados automaticamente.", "success")
+                else:
+                    flash("Locação criada com sucesso!", "success")
+
         except Exception as e:
             get_db().rollback()
             flash(f"Erro ao criar locação: {e}", "error")
@@ -857,12 +935,12 @@ def locacoes():
     # GET
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
-            SELECT l.id, 
-                c.nome AS cliente_nome, 
-                m.modelo AS moto_modelo, 
+            SELECT l.id,
+                c.nome AS cliente_nome,
+                m.modelo AS moto_modelo,
                 m.placa AS moto_placa,
-                l.data_inicio, 
-                l.data_fim, 
+                l.data_inicio,
+                l.data_fim,
                 l.cancelado,
                 l.observacoes,
                 l.contrato_pdf,
@@ -871,6 +949,7 @@ def locacoes():
                 l.valor_pago,
                 l.data_pagamento,
                 l.frequencia_pagamento,
+                l.asaas_subscription_id,
                 COUNT(b.id) as total_boletos,
                 COUNT(CASE WHEN b.status = 'RECEIVED' THEN 1 END) as boletos_pagos
             FROM locacoes l
@@ -968,38 +1047,79 @@ def editar_locacao(id):
 
         # Buscar boletos da locação
         cur.execute("""
-            SELECT * FROM boletos 
-            WHERE locacao_id = %s 
+            SELECT * FROM boletos
+            WHERE locacao_id = %s
             ORDER BY data_vencimento DESC, created_at DESC
         """, (id,))
         boletos = cur.fetchall()
 
         return render_template("editar_locacao.html", locacao=locacao, boletos=boletos)
 
-
 @app.route("/locacoes/<int:id>/cancelar", methods=["POST"])
 def cancelar_locacao(id):
+    """
+    Cancela a locação:
+    - Libera a moto
+    - Marca a locação como cancelada e define data_fim = hoje
+    - Se houver asaas_subscription_id → cancela assinatura no Asaas
+    - Se houver asaas_payment_id pendente → tenta cancelar pagamento no Asaas
+    """
     try:
         with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT moto_id FROM locacoes WHERE id = %s", (id,))
-            locacao = cur.fetchone()
-            if not locacao:
+            # Buscar dados necessários
+            cur.execute("""
+                SELECT l.id, l.moto_id, l.cancelado, l.asaas_subscription_id, l.asaas_payment_id, l.pagamento_status
+                FROM locacoes l
+                WHERE l.id = %s
+                LIMIT 1
+            """, (id,))
+            loc = cur.fetchone()
+
+            if not loc:
                 flash("Locação não encontrada.", "error")
                 return redirect(url_for("locacoes"))
 
-            moto_id = locacao["moto_id"]
+            if loc["cancelado"]:
+                flash("Esta locação já está cancelada.", "info")
+                return redirect(url_for("locacoes"))
 
-            cur.execute("UPDATE locacoes SET cancelado = TRUE WHERE id = %s", (id,))
-            cur.execute("UPDATE motos SET disponivel = TRUE WHERE id = %s", (moto_id,))
+            mensagens = []
+
+            # 1) Cancelar assinatura (para locações recorrentes)
+            if loc.get("asaas_subscription_id"):
+                ok, msg = cancelar_assinatura_asaas(loc["asaas_subscription_id"])
+                mensagens.append(msg)
+
+            # 2) Cancelar pagamento único pendente (para locações avulsas)
+            if loc.get("asaas_payment_id") and (loc.get("pagamento_status") in (None, "", "PENDING")):
+                ok, msg = cancelar_pagamento_asaas(loc["asaas_payment_id"])
+                mensagens.append(msg)
+                # Opcional: atualizar status local como CANCELLED
+                if ok:
+                    cur.execute("""
+                        UPDATE locacoes
+                        SET pagamento_status = 'CANCELLED'
+                        WHERE id = %s
+                    """, (id,))
+
+            # 3) Cancelar locação local + liberar moto
+            hoje = datetime.now().date().isoformat()
+            cur.execute("UPDATE locacoes SET cancelado = TRUE, data_fim = %s WHERE id = %s", (hoje, id))
+            cur.execute("UPDATE motos SET disponivel = TRUE WHERE id = %s", (loc["moto_id"],))
+
             get_db().commit()
 
-            flash("Locação cancelada com sucesso!", "info")
+            # Feedback amigável
+            base_msg = "Locação cancelada com sucesso!"
+            if mensagens:
+                base_msg += " " + " ".join(mensagens)
+            flash(base_msg, "info")
+
     except Exception as e:
         get_db().rollback()
         flash(f"Erro ao cancelar locação: {e}", "error")
 
     return redirect(url_for("locacoes"))
-
 
 # === LOCAÇÕES CANCELADAS ===
 
@@ -1007,23 +1127,51 @@ def cancelar_locacao(id):
 def locacoes_canceladas():
     with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
-            SELECT l.id, 
-                c.nome AS cliente_nome, 
-                m.modelo AS moto_modelo, 
+            SELECT l.id,
+                c.nome AS cliente_nome,
+                m.modelo AS moto_modelo,
                 m.placa AS moto_placa,
-                l.data_inicio, 
-                l.data_fim, 
+                l.data_inicio,
+                l.data_fim,
                 l.observacoes,
                 l.contrato_pdf,
                 l.boleto_url,
                 l.pagamento_status,
                 l.valor_pago,
-                l.data_pagamento
+                l.data_pagamento,
+                l.frequencia_pagamento,
+                l.valor,
+                l.asaas_subscription_id,
+                l.asaas_payment_id,
+                -- Estatísticas dos boletos
+                COUNT(b.id) as total_boletos,
+                COUNT(CASE WHEN b.status = 'RECEIVED' THEN 1 END) as boletos_pagos,
+                COUNT(CASE WHEN b.status = 'PENDING' THEN 1 END) as boletos_pendentes,
+                COUNT(CASE WHEN b.status = 'OVERDUE' THEN 1 END) as boletos_vencidos,
+                COUNT(CASE WHEN b.status = 'CANCELLED' THEN 1 END) as boletos_cancelados,
+                -- Último boleto gerado
+                MAX(b.data_vencimento) as ultimo_vencimento,
+                -- Status do último boleto
+                (SELECT b2.status
+                 FROM boletos b2
+                 WHERE b2.locacao_id = l.id
+                 ORDER BY b2.data_vencimento DESC, b2.id DESC
+                 LIMIT 1) as status_ultimo_boleto,
+                -- URL do último boleto
+                (SELECT b2.boleto_url
+                 FROM boletos b2
+                 WHERE b2.locacao_id = l.id
+                 ORDER BY b2.data_vencimento DESC, b2.id DESC
+                 LIMIT 1) as url_ultimo_boleto,
+                -- Total pago via boletos
+                COALESCE(SUM(CASE WHEN b.status = 'RECEIVED' THEN b.valor_pago END), 0) as total_recebido_boletos
             FROM locacoes l
             JOIN clientes c ON l.cliente_id = c.id
             JOIN motos m ON l.moto_id = m.id
+            LEFT JOIN boletos b ON l.id = b.locacao_id
             WHERE l.cancelado = TRUE
-            ORDER BY l.data_inicio DESC
+            GROUP BY l.id, c.nome, m.modelo, m.placa
+            ORDER BY l.data_fim DESC, l.data_inicio DESC
         """)
         canceladas = cur.fetchall()
 
@@ -1058,7 +1206,7 @@ def servicos_locacao(locacao_id):
 
             try:
                 cur.execute("""
-                    INSERT INTO servicos_locacao (locacao_id, descricao, valor, quilometragem) 
+                    INSERT INTO servicos_locacao (locacao_id, descricao, valor, quilometragem)
                     VALUES (%s, %s, %s, %s)
                 """, (locacao_id, descricao, valor, quilometragem))
                 get_db().commit()
@@ -1079,7 +1227,6 @@ def servicos_locacao(locacao_id):
         servicos = cur.fetchall()
 
         return render_template("servicos_locacao.html", locacao=locacao, servicos=servicos)
-
 
 @app.route("/locacoes/<int:locacao_id>/servicos/<int:servico_id>/excluir", methods=["POST"])
 def excluir_servico_locacao(locacao_id, servico_id):
@@ -1105,196 +1252,162 @@ def excluir_servico_locacao(locacao_id, servico_id):
 
     return redirect(url_for("servicos_locacao", locacao_id=locacao_id))
 
-# === SINCRONIZAÇÃO MANUAL DE BOLETOS ===
+# === BOLETOS DA LOCAÇÃO ===
 
-@app.route("/locacoes/<int:id>/sincronizar_boletos", methods=["POST"])
-def sincronizar_boletos_manual(id):
-    """Rota para sincronização manual de boletos de uma locação"""
-    try:
-        if sincronizar_boletos_locacao(id):
-            flash("Boletos sincronizados com sucesso!", "success")
-        else:
-            flash("Erro ao sincronizar boletos. Verifique se a locação existe e tem cliente com Asaas ID.", "error")
-    except Exception as e:
-        flash(f"Erro ao sincronizar boletos: {e}", "error")
-    
-    return redirect(url_for("editar_locacao", id=id))
+@app.route("/locacoes/<int:locacao_id>/boletos")
+def boletos_locacao(locacao_id):
+    with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        # Dados da locação (cliente/moto) para cabeçalho
+        cur.execute("""
+            SELECT l.id, l.data_inicio, l.data_fim, l.frequencia_pagamento, l.valor,
+                   l.asaas_subscription_id, l.asaas_payment_id, l.pagamento_status,
+                   c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
+            FROM locacoes l
+            JOIN clientes c ON l.cliente_id = c.id
+            JOIN motos m ON l.moto_id = m.id
+            WHERE l.id = %s
+        """, (locacao_id,))
+        locacao = cur.fetchone()
+        if not locacao:
+            flash("Locação não encontrada.", "error")
+            return redirect(url_for("locacoes"))
 
-# === WEBHOOK ASAAS (ATUALIZADO PARA TABELA BOLETOS) ===
+        # Lista de boletos vinculados a essa locação
+        cur.execute("""
+            SELECT b.id, b.asaas_payment_id, b.status, b.valor, b.valor_pago,
+                   b.data_vencimento, b.data_pagamento, b.boleto_url, b.descricao,
+                   b.created_at
+            FROM boletos b
+            WHERE b.locacao_id = %s
+            ORDER BY b.data_vencimento DESC NULLS LAST, b.id DESC
+        """, (locacao_id,))
+        boletos = cur.fetchall()
+
+        # Estatísticas rápidas
+        cur.execute("""
+            SELECT
+                COUNT(*)::int AS total,
+                COUNT(CASE WHEN status = 'RECEIVED' THEN 1 END)::int AS pagos,
+                COUNT(CASE WHEN status = 'PENDING' THEN 1 END)::int AS pendentes,
+                COUNT(CASE WHEN status = 'OVERDUE' THEN 1 END)::int AS vencidos,
+                COUNT(CASE WHEN status = 'CANCELLED' THEN 1 END)::int AS cancelados,
+                COALESCE(SUM(CASE WHEN status = 'RECEIVED' THEN COALESCE(valor_pago, valor) END), 0) AS total_recebido
+            FROM boletos
+            WHERE locacao_id = %s
+        """, (locacao_id,))
+        stats = cur.fetchone()
+
+    return render_template("boletos_locacao.html", locacao=locacao, boletos=boletos, stats=stats)
+
+# === WEBHOOK ASAAS ===
 
 @app.route("/webhook/asaas", methods=["POST"])
 def webhook_asaas():
     """
-    Endpoint que recebe notificações do Asaas.
-    Atualiza tanto a tabela locacoes quanto a tabela boletos.
+    Webhook para receber notificações do Asaas sobre mudanças de status de pagamentos
     """
-    webhook_secret = app.config.get("ASAAS_WEBHOOK_SECRET")
-    
-    if not webhook_secret:
-        return jsonify({"error": "webhook_secret_not_configured"}), 500
-
-    # 1) Verificação HMAC (preferida)
-    sig_header = request.headers.get("X-ASAAS-SIGNATURE") or request.headers.get("X-Hub-Signature-256")
-    if sig_header:
-        # Expecting format "sha256=<hex>" or raw hex
-        sig_val = sig_header.split("=", 1)[1] if "=" in sig_header else sig_header
-        mac = hmac.new(webhook_secret.encode(), request.data, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(mac, sig_val):
-            return jsonify({"error": "invalid_signature"}), 403
-
-    # 2) Fallback: token in header or query param
-    else:
-        token = request.headers.get("X-ASAAS-WEBHOOK-TOKEN") or request.args.get("token")
-        if not token or not hmac.compare_digest(token, webhook_secret):
-            return jsonify({"error": "forbidden"}), 403
-
-    # Parse payload
-    payload = request.get_json(silent=True)
-    if not payload:
-        return jsonify({"error": "invalid_payload"}), 400
-
-    # Normalize payment object
-    payment_obj = payload.get("payment") or payload.get("object") or payload.get("data") or payload
-    payment_id = None
-    
-    if isinstance(payment_obj, dict):
-        payment_id = payment_obj.get("id") or payment_obj.get("paymentId") or payment_obj.get("payment")
-
-    # Optionally fetch full payment from Asaas API
-    payment = payment_obj if isinstance(payment_obj, dict) else {}
-    if payment_id and ASAAS_API_KEY:
-        try:
-            r = requests.get(f"{ASAAS_BASE_URL}/payments/{payment_id}", headers=asaas_headers, timeout=10)
-            if r.status_code == 200:
-                payment = r.json()
-            else:
-                print(f"[webhook_asaas] Asaas API returned {r.status_code}: {r.text}")
-        except Exception as ex:
-            print(f"[webhook_asaas] Error fetching payment from Asaas: {ex}")
-
-    # Extract payment fields
-    asaas_payment_id = payment.get("id") or payment_id
-    customer_asaas_id = payment.get("customer") or payment.get("customerId")
-    payment_status = payment.get("status") or payment.get("paymentStatus")
-    boleto_url = payment.get("bankSlipUrl") or payment.get("invoiceUrl") or payment.get("boletoUrl")
-    valor = payment.get("value") or payment.get("originalValue") or payment.get("amount")
-    received_value = payment.get("paidValue") or payment.get("valuePaid")
-    date_paid = payment.get("paymentDate") or payment.get("datePayment") or payment.get("paidDate")
-
     try:
-        with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Find local cliente by asaas_id
-            cliente = None
-            if customer_asaas_id:
-                cur.execute("SELECT id FROM clientes WHERE asaas_id = %s LIMIT 1", (customer_asaas_id,))
-                cliente = cur.fetchone()
-
-            # Find locacao using multiple strategies
-            locacao = None
+        # Verificar assinatura do webhook (segurança)
+        webhook_secret = app.config.get("ASAAS_WEBHOOK_SECRET")
+        if webhook_secret:
+            signature = request.headers.get("X-Asaas-Signature")
+            if not signature:
+                return jsonify({"error": "Missing signature"}), 401
             
-            # Strategy 1: by asaas_payment_id
-            if asaas_payment_id:
-                cur.execute("SELECT id FROM locacoes WHERE asaas_payment_id = %s LIMIT 1", (asaas_payment_id,))
-                locacao = cur.fetchone()
+            payload = request.get_data()
+            expected_signature = hmac.new(
+                webhook_secret.encode(),
+                payload,
+                hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(signature, expected_signature):
+                return jsonify({"error": "Invalid signature"}), 401
 
-            # Strategy 2: by boleto_url
-            if not locacao and boleto_url:
-                cur.execute("SELECT id FROM locacoes WHERE boleto_url = %s LIMIT 1", (boleto_url,))
-                locacao = cur.fetchone()
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data"}), 400
 
-            # Strategy 3: latest locacao for customer
-            if not locacao and cliente:
-                cur.execute("SELECT id FROM locacoes WHERE cliente_id = %s ORDER BY id DESC LIMIT 1", (cliente["id"],))
-                locacao = cur.fetchone()
+        event = data.get("event")
+        payment_data = data.get("payment", {})
+        payment_id = payment_data.get("id")
 
-            # Strategy 4: latest unpaid locacao for customer
-            if not locacao and cliente:
-                cur.execute("""
-                    SELECT id FROM locacoes
-                    WHERE cliente_id = %s
-                    AND (pagamento_status IS NULL OR pagamento_status <> 'RECEIVED')
-                    ORDER BY id DESC
-                    LIMIT 1
-                """, (cliente["id"],))
-                locacao = cur.fetchone()
+        if not payment_id:
+            return jsonify({"error": "No payment ID"}), 400
 
-            if not locacao:
-                print("[webhook_asaas] No matching locacao found")
-                return jsonify({"ok": True, "message": "no_locacao_found"}), 200
-
-            locacao_id = locacao["id"]
-
-            # Update locacao with payment info
+        # Atualizar status do boleto na tabela boletos
+        with get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
-                UPDATE locacoes SET
-                    pagamento_status = %s,
-                    asaas_payment_id = %s,
-                    boleto_url = COALESCE(%s, boleto_url),
-                    valor_pago = COALESCE(%s, valor_pago),
-                    data_pagamento = COALESCE(%s, data_pagamento)
-                WHERE id = %s
-            """, (payment_status, asaas_payment_id, boleto_url, received_value, date_paid, locacao_id))
+                UPDATE boletos SET
+                    status = %s,
+                    valor_pago = %s,
+                    data_pagamento = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE asaas_payment_id = %s
+            """, (
+                payment_data.get("status"),
+                payment_data.get("paidValue"),
+                payment_data.get("paymentDate"),
+                payment_id
+            ))
 
-            # 🔹 Update or insert boleto in boletos table
-            if asaas_payment_id:
-                cur.execute("SELECT id FROM boletos WHERE asaas_payment_id = %s", (asaas_payment_id,))
-                boleto_existente = cur.fetchone()
-                
-                if boleto_existente:
-                    # Update existing boleto
-                    cur.execute("""
-                        UPDATE boletos SET
-                            status = %s,
-                            valor = COALESCE(%s, valor),
-                            data_pagamento = %s,
-                            valor_pago = %s,
-                            boleto_url = COALESCE(%s, boleto_url),
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE asaas_payment_id = %s
-                    """, (payment_status, valor, date_paid, received_value, boleto_url, asaas_payment_id))
-                else:
-                    # Insert new boleto
-                    cur.execute("""
-                        INSERT INTO boletos (
-                            locacao_id, asaas_payment_id, status, valor, 
-                            data_vencimento, data_pagamento, valor_pago, 
-                            boleto_url, descricao
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        locacao_id, asaas_payment_id, payment_status, valor,
-                        payment.get("dueDate"), date_paid, received_value,
-                        boleto_url, payment.get("description", "Locação de Moto")
-                    ))
+            # Se o pagamento foi confirmado, atualizar também a tabela locacoes
+            if payment_data.get("status") == "RECEIVED":
+                cur.execute("""
+                    UPDATE locacoes SET
+                        pagamento_status = 'RECEIVED',
+                        valor_pago = %s,
+                        data_pagamento = %s
+                    WHERE asaas_payment_id = %s
+                """, (
+                    payment_data.get("paidValue"),
+                    payment_data.get("paymentDate"),
+                    payment_id
+                ))
 
             get_db().commit()
-            return jsonify({"ok": True, "locacao_id": locacao_id}), 200
+
+        return jsonify({"status": "success"}), 200
 
     except Exception as e:
-        get_db().rollback()
-        print(f"[webhook_asaas] Error processing webhook: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Erro no webhook: {e}")
+        return jsonify({"error": "Internal error"}), 500
 
-# === ROTAS PARA SERVIR ARQUIVOS (Uploads) ===
+# === ROTAS DE ARQUIVOS ===
 
-@app.route('/uploads_motos/<path:filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER_MOTOS'], filename)
+@app.route("/uploads/motos/<filename>")
+def uploaded_moto_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER_MOTOS"], filename)
 
-@app.route('/uploads_contratos/<path:filename>')
-def uploaded_contract(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER_CONTRATOS'], filename)
+@app.route("/uploads/contratos/<filename>")
+def uploaded_contrato_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER_CONTRATOS"], filename)
 
-@app.route('/uploads_habilitacoes/<path:filename>')
-def uploaded_habilitacao(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER_HABILITACOES'], filename)
+@app.route("/uploads/habilitacoes/<filename>")
+def uploaded_habilitacao_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER_HABILITACOES"], filename)
 
-@app.route('/uploads_documentos_motos/<path:filename>')
-def uploaded_documento(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER_DOCUMENTOS'], filename)
+@app.route("/uploads/documentos/<filename>")
+def uploaded_documento_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER_DOCUMENTOS"], filename)
 
+# === SINCRONIZAÇÃO MANUAL ===
 
-# === RUN ===
+@app.route("/locacoes/<int:locacao_id>/sincronizar", methods=["POST"])
+def sincronizar_locacao_manual(locacao_id):
+    """Rota para sincronizar manualmente os boletos de uma locação"""
+    try:
+        sucesso = sincronizar_boletos_locacao(locacao_id)
+        if sucesso:
+            flash("Boletos sincronizados com sucesso!", "success")
+        else:
+            flash("Erro ao sincronizar boletos. Verifique se o cliente está integrado ao Asaas.", "error")
+    except Exception as e:
+        flash(f"Erro ao sincronizar: {e}", "error")
+    
+    return redirect(url_for("editar_locacao", id=locacao_id))
+
+# === INICIALIZAÇÃO ===
+
 if __name__ == "__main__":
-    # Em produção (Render), PORT é definido pelo ambiente
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(debug=True)
