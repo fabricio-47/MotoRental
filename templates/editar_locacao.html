@@ -1,195 +1,84 @@
-<!-- editar_locacao.html atualizado com lista de boletos -->
 {% extends "base.html" %}
-{% block title %}Editar Locação #{{ locacao.id }}{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2>Editar Locação #{{ locacao.id }}</h2>
-  <div>
-    <a href="{{ url_for('sincronizar_boletos_manual', locacao_id=locacao.id) }}" class="btn btn-outline-info btn-sm me-2">
-      <i class="fa-solid fa-sync me-1"></i> Sincronizar Boletos
-    </a>
-    <a href="{{ url_for('locacoes') }}" class="btn btn-outline-secondary">
-      <i class="fa-solid fa-arrow-left me-1"></i> Voltar
-    </a>
-  </div>
-</div>
+<div class="container mt-4">
+    <h2>Editar Locação</h2>
 
-<div class="alert alert-info">
-  <strong>Cliente:</strong> {{ locacao.cliente_nome }} | 
-  <strong>Moto:</strong> {{ locacao.moto_modelo }} - {{ locacao.moto_placa }}
-</div>
+    <!-- Botão de sincronizar boletos corrigido -->
+    <a href="{{ url_for('sincronizar_boletos_manual', id=locacao.id) }}" 
+       class="btn btn-outline-info btn-sm me-2">
+        🔄 Sincronizar Boletos
+    </a>
 
-<!-- Lista de Boletos -->
-<div class="card mb-4">
-  <div class="card-header bg-dark text-white">
-    <i class="fa-solid fa-barcode me-1"></i> Histórico de Boletos
-  </div>
-  <div class="card-body">
-    {% if boletos %}
-    <div class="table-responsive">
-      <table class="table table-sm table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Vencimento</th>
-            <th>Valor</th>
-            <th>Status</th>
-            <th>Criado em</th>
-            <th>Boleto</th>
-          </tr>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="data_inicio" class="form-label">Data Início</label>
+            <input type="date" class="form-control" id="data_inicio" name="data_inicio"
+                   value="{{ locacao.data_inicio }}">
+        </div>
+
+        <div class="mb-3">
+            <label for="data_fim" class="form-label">Data Fim</label>
+            <input type="date" class="form-control" id="data_fim" name="data_fim"
+                   value="{{ locacao.data_fim if locacao.data_fim }}">
+        </div>
+
+        <div class="mb-3">
+            <label for="valor" class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" class="form-control" id="valor" name="valor"
+                   value="{{ locacao.valor }}">
+        </div>
+
+        <div class="mb-3">
+            <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
+            <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select">
+                <option value="mensal" {% if locacao.frequencia_pagamento=="mensal" %}selected{% endif %}>Mensal</option>
+                <option value="semanal" {% if locacao.frequencia_pagamento=="semanal" %}selected{% endif %}>Semanal</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="observacoes" class="form-label">Observações</label>
+            <textarea class="form-control" id="observacoes" name="observacoes">{{ locacao.observacoes }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success">Salvar Alterações</button>
+        <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+
+    <hr>
+
+    <!-- Listagem dos boletos vinculados -->
+    <h4>Boletos desta Locação</h4>
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>Vencimento</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Pago em</th>
+                <th>Ação</th>
+            </tr>
         </thead>
         <tbody>
-          {% for boleto in boletos %}
-          <tr>
-            <td>
-              <strong>{{ boleto[2] }}</strong>
-              {% if boleto[3] == 'OVERDUE' %}
-              <small class="text-danger d-block">Vencido</small>
-              {% elif boleto[3] == 'PENDING' %}
-              <small class="text-warning d-block">Pendente</small>
-              {% endif %}
-            </td>
-            <td>R$ {{ "%.2f"|format(boleto[1]) }}</td>
-            <td>
-              <span class="badge bg-{% if boleto[3] == 'RECEIVED' %}success{% elif boleto[3] == 'PENDING' %}warning{% elif boleto[3] == 'OVERDUE' %}danger{% elif boleto[3] == 'CONFIRMED' %}info{% else %}secondary{% endif %}">
-                {% if boleto[3] == 'RECEIVED' %}Pago
-                {% elif boleto[3] == 'PENDING' %}Pendente
-                {% elif boleto[3] == 'OVERDUE' %}Vencido
-                {% elif boleto[3] == 'CONFIRMED' %}Confirmado
-                {% else %}{{ boleto[3] }}
-                {% endif %}
-              </span>
-            </td>
-            <td>
-              <small class="text-muted">{{ boleto[5].strftime('%d/%m/%Y') if boleto[5] else '-' }}</small>
-            </td>
-            <td>
-              {% if boleto[4] and boleto[3] in ['PENDING', 'OVERDUE'] %}
-              <a href="{{ boleto[4] }}" target="_blank" class="btn btn-sm btn-success">
-                <i class="fa-solid fa-barcode me-1"></i> Ver Boleto
-              </a>
-              {% elif boleto[3] == 'RECEIVED' %}
-              <span class="text-success">
-                <i class="fa-solid fa-check-circle me-1"></i> Pago
-              </span>
-              {% else %}
-              <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
+            {% for boleto in boletos %}
+            <tr>
+                <td>{{ boleto.data_vencimento }}</td>
+                <td>R$ {{ boleto.valor }}</td>
+                <td>{{ boleto.status }}</td>
+                <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
+                <td>
+                    {% if boleto.boleto_url %}
+                    <a href="{{ boleto.boleto_url }}" target="_blank" class="btn btn-sm btn-primary">Ver Boleto</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center">Nenhum boleto gerado ainda</td>
+            </tr>
+            {% endfor %}
         </tbody>
-      </table>
-    </div>
-    
-    <!-- Resumo dos boletos -->
-    <div class="row mt-3">
-      <div class="col-md-3">
-        <div class="card border-success">
-          <div class="card-body text-center">
-            <h6 class="card-title text-success">Pagos</h6>
-            <h4>{{ boletos|selectattr('3', 'equalto', 'RECEIVED')|list|length }}</h4>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card border-warning">
-          <div class="card-body text-center">
-            <h6 class="card-title text-warning">Pendentes</h6>
-            <h4>{{ boletos|selectattr('3', 'equalto', 'PENDING')|list|length }}</h4>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card border-danger">
-          <div class="card-body text-center">
-            <h6 class="card-title text-danger">Vencidos</h6>
-            <h4>{{ boletos|selectattr('3', 'equalto', 'OVERDUE')|list|length }}</h4>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card border-info">
-          <div class="card-body text-center">
-            <h6 class="card-title text-info">Total</h6>
-            <h4>{{ boletos|length }}</h4>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    {% else %}
-    <div class="text-center text-muted py-4">
-      <i class="fa-solid fa-barcode fa-3x mb-3"></i>
-      <p>Nenhum boleto encontrado para esta locação.</p>
-      <small>Os boletos são criados automaticamente pelo Asaas de acordo com a frequência de pagamento.</small>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Formulário de edição da locação (código existente) -->
-<div class="card shadow-sm">
-  <div class="card-header bg-primary text-white">
-    <i class="fa-solid fa-edit me-1"></i> Dados da Locação
-  </div>
-  <div class="card-body">
-    <form method="post" enctype="multipart/form-data">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Data Início</label>
-          <input type="date" name="data_inicio" class="form-control" value="{{ locacao.data_inicio }}" required>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Data Fim</label>
-          <input type="date" name="data_fim" class="form-control" value="{{ locacao.data_fim or '' }}">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Frequência de Pagamento</label>
-          <select name="frequencia_pagamento" class="form-select" required>
-            <option value="">Selecione</option>
-            <option value="semanal" {% if locacao.frequencia_pagamento == 'semanal' %}selected{% endif %}>Semanal</option>
-            <option value="quinzenal" {% if locacao.frequencia_pagamento == 'quinzenal' %}selected{% endif %}>Quinzenal</option>
-            <option value="mensal" {% if locacao.frequencia_pagamento == 'mensal' %}selected{% endif %}>Mensal</option>
-            <option value="trimestral" {% if locacao.frequencia_pagamento == 'trimestral' %}selected{% endif %}>Trimestral</option>
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Observações</label>
-          <textarea name="observacoes" class="form-control" rows="4">{{ locacao.observacoes or '' }}</textarea>
-        </div>
-
-        <div class="col-md-12">
-          <label class="form-label">Contrato (PDF)</label>
-          {% if locacao.contrato_pdf %}
-          <p>
-            Contrato atual:
-            <a href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
-               target="_blank"
-               class="btn btn-sm btn-outline-primary">
-              <i class="fa-solid fa-file-pdf me-1"></i> Ver Contrato
-            </a>
-          </p>
-          {% endif %}
-          <input type="file" name="contrato_pdf" class="form-control" accept=".pdf">
-          <small class="text-muted">Deixe em branco se não quiser substituir</small>
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <button class="btn btn-success">
-          <i class="fa-solid fa-save me-1"></i> Salvar Alterações
-        </button>
-        <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">
-          <i class="fa-solid fa-xmark me-1"></i> Cancelar
-        </a>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="alert alert-warning mt-3">
-  <i class="fa-solid fa-info-circle me-1"></i> 
-  <strong>Nota:</strong> Cliente e moto não podem ser alterados após criação da locação. 
-  Para isso, cancele esta locação e crie uma nova.
+    </table>
 </div>
 {% endblock %}
