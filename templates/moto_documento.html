@@ -19,7 +19,7 @@
       <div class="mb-3">
         <label class="form-label d-block">Documento atual</label>
         {% set arquivo = moto.documento_arquivo %}
-        {% if arquivo and arquivo|lower endswith '.pdf' %}
+        {% if arquivo and '.pdf' in arquivo|lower %}
           <a href="{{ url_for('uploaded_documento', filename=arquivo) }}" 
             target="_blank" class="btn btn-outline-primary btn-sm me-2" title="Ver PDF">
             <i class="fa-solid fa-file-pdf me-1"></i> Ver PDF
