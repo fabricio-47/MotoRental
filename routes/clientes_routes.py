@@ -1,4 +1,5 @@
 import os
+import psycopg2   # 👉 coloque no topo do arquivo se ainda não tiver
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app
 from flask_login import login_required
 from database import get_db_connection
@@ -140,29 +141,28 @@ from database import get_db_connection
 # supondo que já exista:
 # clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
 
+
+
 @clientes_bp.route("/<int:id>/excluir", methods=["POST"])
 @login_required
 def excluir_cliente(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Verifica se há locações vinculadas (ativas ou históricas)
-        cur.execute("SELECT COUNT(*) FROM locacoes WHERE cliente_id = %s", (id,))
-        qtd = cur.fetchone()[0]
-
-        if qtd and int(qtd) > 0:
-            flash("Não é possível excluir: existem locações vinculadas a este cliente.", "warning")
-            return redirect(url_for("clientes.listar_clientes"))
-
-        # Exclui o cliente
         cur.execute("DELETE FROM clientes WHERE id = %s", (id,))
         conn.commit()
         flash("Cliente excluído com sucesso.", "success")
-    except Exception as e:
+
+    except psycopg2.Error as e:
         conn.rollback()
-        flash(f"Erro ao excluir cliente: {e}", "danger")
+        motivo = e.pgerror or str(e)
+        detalhe = getattr(e.diag, "message_detail", "")
+        if detalhe:
+            flash(f"Erro ao excluir cliente: {detalhe}", "danger")
+        else:
+            flash(f"Erro ao excluir cliente: {motivo}", "danger")
+
     finally:
         cur.close()
         conn.close()
-
     return redirect(url_for("clientes.listar_clientes"))

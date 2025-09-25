@@ -203,6 +203,8 @@ def canceladas():
     return render_template("locacoes_canceladas.html", locacoes=locacoes)
 
 # ==== Cancelar locação específica ====
+import psycopg2   # 👉 garanta que está no topo
+
 @locacoes_bp.route("/<int:id>/cancelar", methods=["POST"])
 @login_required
 def cancelar_locacao(id):
@@ -217,6 +219,7 @@ def cancelar_locacao(id):
 
         asaas_subscription_id, moto_id = row[0], row[1]
 
+        # Cancela assinatura no Asaas se existir
         if asaas_subscription_id:
             resp = requests.post(
                 f"{Config.ASAAS_BASE_URL}/subscriptions/{asaas_subscription_id}/cancel",
@@ -226,14 +229,26 @@ def cancelar_locacao(id):
             if resp.status_code not in (200, 201):
                 flash(f"Falha ao cancelar assinatura no Asaas: {resp.text}", "warning")
 
+        # Cancela locação localmente
         hoje = dt.date.today().strftime("%Y-%m-%d")
         cur.execute("UPDATE locacoes SET cancelado=TRUE, data_fim=%s WHERE id=%s", (hoje, id))
         cur.execute("UPDATE motos SET disponivel=TRUE WHERE id=%s", (moto_id,))
         conn.commit()
         flash("Locação cancelada!", "info")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        motivo = e.pgerror or str(e)
+        detalhe = getattr(e.diag, "message_detail", "")
+        if detalhe:
+            flash(f"Erro ao cancelar locação: {detalhe}", "danger")
+        else:
+            flash(f"Erro ao cancelar locação: {motivo}", "danger")
+
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao cancelar locação: {e}", "danger")
+        flash(f"Erro inesperado ao cancelar locação: {str(e)}", "danger")
+
     finally:
         cur.close()
         conn.close()
