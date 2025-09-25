@@ -65,12 +65,15 @@ CREATE TABLE IF NOT EXISTS motos (
 -- ====
 CREATE TABLE IF NOT EXISTS locacoes (
     id SERIAL PRIMARY KEY,
-    cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
-    moto_id INTEGER NOT NULL REFERENCES motos(id) ON DELETE RESTRICT,
+    cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+    moto_id INTEGER NOT NULL REFERENCES motos(id) ON DELETE CASCADE,
     data_inicio DATE NOT NULL,
     data_fim DATE,
     cancelado BOOLEAN DEFAULT FALSE,
     observacoes TEXT,
+
+    -- Contrato único em PDF
+    contrato_arquivo VARCHAR(255),
 
     -- Assinatura Asaas
     asaas_subscription_id VARCHAR(255) UNIQUE,
@@ -94,7 +97,7 @@ CREATE TABLE IF NOT EXISTS locacoes (
     CONSTRAINT chk_locacoes_valor_pago CHECK (valor_pago IS NULL OR valor_pago >= 0),
     CONSTRAINT chk_locacoes_freq CHECK (frequencia_pagamento IN ('WEEKLY','MONTHLY')),
     CONSTRAINT chk_locacoes_status CHECK (pagamento_status IN (
-    'PENDING','RECEIVED','CONFIRMED','OVERDUE','CANCELED','REFUNDED','CHARGEBACK','RECEIVED_IN_CASH'
+        'PENDING','RECEIVED','CONFIRMED','OVERDUE','CANCELED','REFUNDED','CHARGEBACK','RECEIVED_IN_CASH'
     ))
 );
 

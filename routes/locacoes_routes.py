@@ -48,7 +48,6 @@ def listar_locacoes():
                 return redirect(url_for("locacoes.listar_locacoes"))
 
             # 2) Parse de datas e valor
-            # Se data vem como dd/mm/aaaa, converte para YYYY-MM-DD
             def parse_date_flexible(s):
                 if "/" in s:  # dd/mm/aaaa
                     return dt.datetime.strptime(s, "%d/%m/%Y").strftime("%Y-%m-%d")
@@ -58,7 +57,6 @@ def listar_locacoes():
             data_inicio = parse_date_flexible(data_inicio_str)
             data_fim = parse_date_flexible(data_fim_str) if data_fim_str else None
 
-            # Converter valor (pt-BR -> float)
             valor = float(valor_str.replace(".", "").replace(",", "."))
 
             # 3) Buscar dados do cliente/moto
@@ -104,19 +102,33 @@ def listar_locacoes():
 
             asaas_subscription_id = resp.json().get("id")
 
-            # 5) Salvar locação no banco
+            # 5) Upload do contrato (PDF)
+            contrato_arquivo = None
+            arquivo = request.files.get("contrato_pdf")
+            if arquivo and arquivo.filename:
+                from werkzeug.utils import secure_filename
+                import os
+                nome_seguro = secure_filename(arquivo.filename)
+                pasta_contratos = os.path.join(os.getcwd(), "uploads", "contratos")
+                os.makedirs(pasta_contratos, exist_ok=True)
+                caminho_destino = os.path.join(pasta_contratos, nome_seguro)
+                arquivo.save(caminho_destino)
+                contrato_arquivo = nome_seguro
+
+            # 6) Salvar locação no banco
             cur.execute("""
                 INSERT INTO locacoes (
                     cliente_id, moto_id, data_inicio, data_fim,
-                    valor, frequencia_pagamento, observacoes, asaas_subscription_id
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    valor, frequencia_pagamento, observacoes, 
+                    asaas_subscription_id, contrato_arquivo
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (cliente_id, moto_id, data_inicio, data_fim,
-                  valor, frequencia, observacoes, asaas_subscription_id))
+                  valor, frequencia, observacoes, asaas_subscription_id, contrato_arquivo))
 
-            # 6) Marcar moto como indisponível
+            # 7) Marcar moto como indisponível
             cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
             conn.commit()
-            flash("Locação criada e assinatura recorrente configurada no Asaas!", "success")
+            flash("Locação criada, contrato salvo e assinatura recorrente configurada no Asaas!", "success")
             return redirect(url_for("locacoes.listar_locacoes"))
 
         except psycopg2.Error as e:
