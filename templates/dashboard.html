@@ -61,7 +61,7 @@
         <i class="fa-solid fa-ban fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
-        <a href="{{ url_for('locacoes.locacoes_canceladas') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
+        <a href="{{ url_for('locacoes.canceladas') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
       </div>
     </div>
   </div>
@@ -155,11 +155,11 @@
                 <td>
                   {% set st = l.pagamento_status %}
                   {% if st %}
-                    <span class="badge bg-{% if st == 'RECEIVED' %}success{% elif st == 'PENDING' %}warning{% elif st == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
-                      {{ st }}
-                    </span>
+                  <span class="badge bg-{% if st == 'RECEIVED' %}success{% elif st == 'PENDING' %}warning{% elif st == 'OVERDUE' %}danger{% else %}secondary{% endif %}">
+                    {{ st }}
+                  </span>
                   {% else %}
-                    <span class="text-muted">—</span>
+                  <span class="text-muted">—</span>
                   {% endif %}
                 </td>
               </tr>
