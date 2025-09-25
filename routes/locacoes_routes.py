@@ -1,5 +1,3 @@
-import os
-import time
 import datetime as dt
 import requests
 from flask import Blueprint, render_template, request, redirect, url_for, flash
@@ -9,9 +7,7 @@ from config import Config
 
 locacoes_bp = Blueprint("locacoes", __name__, url_prefix="/locacoes")
 
-# ======================
-# Listar ativas + Criar locação (com assinatura Asaas)
-# ======================
+# ==== Listar locações ativas + Criar nova ====
 @locacoes_bp.route("/", methods=["GET", "POST"])
 @login_required
 def listar_locacoes():
@@ -46,9 +42,9 @@ def listar_locacoes():
                 "customer": cliente[0],
                 "billingType": "BOLETO",
                 "value": float(valor),
-                "cycle": frequencia,  # WEEKLY ou MONTHLY
+                "cycle": frequencia,
                 "description": f"Locação moto {moto[0]} - {moto[1]} ({cliente[1]})",
-                "nextDueDate": data_inicio  # primeira cobrança
+                "nextDueDate": data_inicio
             }
             if data_fim:
                 subscription_data["endDate"] = data_fim
@@ -59,27 +55,24 @@ def listar_locacoes():
                 json=subscription_data,
                 timeout=30
             )
-
             if resp.status_code not in (200, 201):
                 flash(f"Erro ao criar assinatura no Asaas: {resp.text}", "danger")
                 return redirect(url_for("locacoes.listar_locacoes"))
 
             asaas_subscription_id = resp.json().get("id")
 
-            # Salvar locação
+            # Salvar locação no banco
             cur.execute("""
                 INSERT INTO locacoes (
                     cliente_id, moto_id, data_inicio, data_fim,
                     valor, frequencia_pagamento, observacoes, asaas_subscription_id
                 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (cliente_id, moto_id, data_inicio, data_fim, valor, frequencia, observacoes, asaas_subscription_id))
+            """, (cliente_id, moto_id, data_inicio, data_fim,
+                  valor, frequencia, observacoes, asaas_subscription_id))
 
-            # Opcional: marcar moto indisponível
             cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
-
             conn.commit()
             flash("Locação criada e assinatura recorrente configurada no Asaas!", "success")
-
         except Exception as e:
             conn.rollback()
             flash(f"Erro ao criar locação: {e}", "danger")
@@ -93,8 +86,7 @@ def listar_locacoes():
     cur.execute("""
         SELECT l.id, l.data_inicio, l.data_fim, l.valor, l.frequencia_pagamento,
                l.pagamento_status, l.valor_pago, l.asaas_subscription_id, l.boleto_url,
-               c.nome AS cliente_nome,
-               m.modelo AS moto_modelo, m.placa AS moto_placa
+               c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
         FROM locacoes l
         JOIN clientes c ON l.cliente_id = c.id
         JOIN motos m ON l.moto_id = m.id
@@ -113,9 +105,7 @@ def listar_locacoes():
     conn.close()
     return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
 
-# ======================
-# Editar locação + listar boletos
-# ======================
+# ==== Editar locação + listar boletos ====
 @locacoes_bp.route("/<int:id>/editar", methods=["GET", "POST"])
 @login_required
 def editar_locacao(id):
@@ -126,28 +116,21 @@ def editar_locacao(id):
         data_inicio = request.form["data_inicio"]
         data_fim = request.form.get("data_fim") or None
         valor = request.form["valor"]
-        frequencia = request.form["frequencia_pagamento"]  # WEEKLY/MONTHLY
+        frequencia = request.form["frequencia_pagamento"]
         observacoes = request.form.get("observacoes")
 
         try:
-            # Atualizar locação local
             cur.execute("""
                 UPDATE locacoes SET data_inicio=%s, data_fim=%s, valor=%s,
-                    frequencia_pagamento=%s, observacoes=%s
-                WHERE id=%s
+                frequencia_pagamento=%s, observacoes=%s WHERE id=%s
             """, (data_inicio, data_fim, valor, frequencia, observacoes, id))
 
-            # Buscar subscription
             cur.execute("SELECT asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
             row = cur.fetchone()
             asaas_subscription_id = row[0] if row else None
 
-            # Atualizar assinatura no Asaas
             if asaas_subscription_id:
-                patch_data = {
-                    "value": float(valor),
-                    "cycle": frequencia,
-                }
+                patch_data = {"value": float(valor), "cycle": frequencia}
                 if data_inicio:
                     patch_data["nextDueDate"] = data_inicio
                 if data_fim:
@@ -171,7 +154,7 @@ def editar_locacao(id):
                 else:
                     flash("Locação e assinatura atualizadas!", "success")
             else:
-                flash("Locação atualizada (sem assinatura Asaas vinculada).", "success")
+                flash("Locação atualizada (sem assinatura Asaas).", "success")
 
             conn.commit()
         except Exception as e:
@@ -180,15 +163,10 @@ def editar_locacao(id):
         finally:
             cur.close()
             conn.close()
-
         return redirect(url_for("locacoes.editar_locacao", id=id))
 
-    # GET: carregar dados e boletos
-    cur.execute("""
-        SELECT id, cliente_id, moto_id, data_inicio, data_fim, valor,
-               frequencia_pagamento, observacoes, asaas_subscription_id
-        FROM locacoes WHERE id=%s
-    """, (id,))
+    # GET
+    cur.execute("SELECT id, cliente_id, moto_id, data_inicio, data_fim, valor, frequencia_pagamento, observacoes, asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
     locacao = cur.fetchone()
 
     cur.execute("""
@@ -203,15 +181,33 @@ def editar_locacao(id):
     conn.close()
     return render_template("editar_locacao.html", locacao=locacao, boletos=boletos)
 
-# ======================
-# Cancelar locação
-# ======================
+# ==== Listar locações canceladas ====
+@locacoes_bp.route("/canceladas")
+@login_required
+def canceladas():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT l.id, l.data_inicio, l.data_fim, l.valor, l.frequencia_pagamento,
+               l.pagamento_status, l.valor_pago, l.asaas_subscription_id, l.boleto_url,
+               c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
+        FROM locacoes l
+        JOIN clientes c ON l.cliente_id = c.id
+        JOIN motos m ON l.moto_id = m.id
+        WHERE l.cancelado = TRUE
+        ORDER BY l.data_inicio DESC
+    """)
+    locacoes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("locacoes_canceladas.html", locacoes=locacoes)
+
+# ==== Cancelar locação específica ====
 @locacoes_bp.route("/<int:id>/cancelar", methods=["POST"])
 @login_required
 def cancelar_locacao(id):
     conn = get_db_connection()
     cur = conn.cursor()
-
     try:
         cur.execute("SELECT asaas_subscription_id, moto_id FROM locacoes WHERE id=%s", (id,))
         row = cur.fetchone()
@@ -221,7 +217,6 @@ def cancelar_locacao(id):
 
         asaas_subscription_id, moto_id = row[0], row[1]
 
-        # Cancela assinatura no Asaas
         if asaas_subscription_id:
             resp = requests.post(
                 f"{Config.ASAAS_BASE_URL}/subscriptions/{asaas_subscription_id}/cancel",
@@ -231,32 +226,25 @@ def cancelar_locacao(id):
             if resp.status_code not in (200, 201):
                 flash(f"Falha ao cancelar assinatura no Asaas: {resp.text}", "warning")
 
-        # Marca como cancelado e libera moto
         hoje = dt.date.today().strftime("%Y-%m-%d")
         cur.execute("UPDATE locacoes SET cancelado=TRUE, data_fim=%s WHERE id=%s", (hoje, id))
         cur.execute("UPDATE motos SET disponivel=TRUE WHERE id=%s", (moto_id,))
         conn.commit()
-
         flash("Locação cancelada!", "info")
-
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao cancelar locação: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-
     return redirect(url_for("locacoes.listar_locacoes"))
 
-# ======================
-# Sincronizar boletos manualmente
-# ======================
+# ==== Sincronizar boletos manualmente ====
 @locacoes_bp.route("/<int:id>/sincronizar_boletos", methods=["GET"])
 @login_required
 def sincronizar_boletos_manual(id):
     conn = get_db_connection()
     cur = conn.cursor()
-
     try:
         cur.execute("SELECT asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
         row = cur.fetchone()
@@ -267,7 +255,6 @@ def sincronizar_boletos_manual(id):
         sub_id = row[0]
         url = f"{Config.ASAAS_BASE_URL}/payments?subscription={sub_id}&limit=100"
         resp = requests.get(url, headers={"access_token": Config.ASAAS_API_KEY}, timeout=30)
-
         if resp.status_code not in (200, 201):
             flash(f"Erro ao consultar boletos no Asaas: {resp.text}", "danger")
             return redirect(url_for("locacoes.editar_locacao", id=id))
@@ -286,33 +273,33 @@ def sincronizar_boletos_manual(id):
             due_date = p.get("dueDate")
             payment_date = p.get("paymentDate")
 
-            # upsert
             cur.execute("SELECT id FROM boletos WHERE asaas_payment_id=%s", (asaas_payment_id,))
             existe = cur.fetchone()
             if existe:
                 cur.execute("""
                     UPDATE boletos
-                       SET status=%s, valor=%s, valor_pago=%s, boleto_url=%s, descricao=%s,
-                           data_vencimento=%s, data_pagamento=%s
-                     WHERE asaas_payment_id=%s
-                """, (status, valor, net_value, boleto_url, descricao, due_date, payment_date, asaas_payment_id))
+                    SET status=%s, valor=%s, valor_pago=%s, boleto_url=%s,
+                        descricao=%s, data_vencimento=%s, data_pagamento=%s
+                    WHERE asaas_payment_id=%s
+                """, (status, valor, net_value, boleto_url,
+                      descricao, due_date, payment_date, asaas_payment_id))
                 atualizados += 1
             else:
                 cur.execute("""
-                    INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor, valor_pago,
-                                         boleto_url, descricao, data_vencimento, data_pagamento)
+                    INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor,
+                                         valor_pago, boleto_url, descricao,
+                                         data_vencimento, data_pagamento)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (id, asaas_payment_id, status, valor, net_value, boleto_url, descricao, due_date, payment_date))
+                """, (id, asaas_payment_id, status, valor, net_value,
+                      boleto_url, descricao, due_date, payment_date))
                 inseridos += 1
 
         conn.commit()
         flash(f"Boletos sincronizados! Inseridos: {inseridos}, Atualizados: {atualizados}.", "success")
-
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao sincronizar boletos: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-
     return redirect(url_for("locacoes.editar_locacao", id=id))
