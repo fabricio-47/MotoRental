@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2>Editar Cliente</h2>
-  <a href="{{ url_for('clientes') }}" class="btn btn-outline-secondary">
+  <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-outline-secondary">
     <i class="fa-solid fa-arrow-left me-1"></i> Voltar
   </a>
 </div>
@@ -60,12 +60,12 @@
           <label class="form-label">Habilitação (PDF/Imagem)</label>
           {% if cliente.habilitacao_arquivo %}
             <div class="d-flex align-items-center gap-2 mb-2">
-              <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
+              <a href="{{ url_for('clientes.uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
                  target="_blank"
                  class="btn btn-sm btn-outline-primary" title="Ver Habilitação">
                 <i class="fa-solid fa-id-card me-1"></i> Ver Habilitação
               </a>
-              <form method="post" action="{{ url_for('excluir_habilitacao', id=cliente.id) }}" onsubmit="return confirm('Remover habilitação atual?');">
+              <form method="post" action="{{ url_for('clientes.excluir_habilitacao', id=cliente.id) }}" onsubmit="return confirm('Remover habilitação atual?');">
                 <button class="btn btn-sm btn-danger" type="submit" title="Remover Habilitação">
                   <i class="fa-solid fa-trash-can me-1"></i> Remover
                 </button>
@@ -83,7 +83,7 @@
         <button class="btn btn-success">
           <i class="fa-solid fa-save me-1"></i> Salvar Alterações
         </button>
-        <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
+        <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-secondary">
           <i class="fa-solid fa-xmark me-1"></i> Cancelar
         </a>
       </div>

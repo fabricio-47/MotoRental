@@ -80,7 +80,7 @@
             <td>{{ cliente.cpf or "-" }}</td>
             <td>
               {% if cliente.habilitacao_arquivo %}
-                <a href="{{ url_for('uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
+                <a href="{{ url_for('clientes.uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
                    target="_blank"
                    class="btn btn-sm btn-outline-success"
                    title="Ver Habilitação">
@@ -92,13 +92,13 @@
             </td>
             <td>
               <div class="btn-group" role="group">
-                <a href="{{ url_for('editar_cliente', id=cliente.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                <a href="{{ url_for('clientes.editar_cliente', id=cliente.id) }}" class="btn btn-sm btn-warning" title="Editar">
                   <i class="fa-solid fa-edit"></i>
                 </a>
-                <a href="{{ url_for('cliente_habilitacao', id=cliente.id) }}" class="btn btn-sm btn-info" title="Habilitação">
+                <a href="{{ url_for('clientes.cliente_habilitacao', id=cliente.id) }}" class="btn btn-sm btn-info" title="Habilitação">
                   <i class="fa-solid fa-file-contract"></i>
                 </a>
-                <form action="{{ url_for('excluir_cliente', id=cliente.id) }}" method="post" style="display:inline">
+                <form action="{{ url_for('clientes.excluir_cliente', id=cliente.id) }}" method="post" style="display:inline">
                   <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Excluir este cliente?');" title="Excluir">
                     <i class="fa-solid fa-trash"></i>
                   </button>

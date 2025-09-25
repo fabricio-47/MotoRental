@@ -71,7 +71,7 @@
             <td>
               {% if moto.documento_arquivo %}
                 <a class="btn btn-sm btn-outline-primary"
-                   href="{{ url_for('uploaded_documento', filename=moto.documento_arquivo) }}"
+                   href="{{ url_for('motos.uploaded_documento', filename=moto.documento_arquivo) }}"
                    target="_blank" title="Ver Documento">
                   <i class="fa-solid fa-file-lines"></i>
                 </a>
@@ -81,16 +81,16 @@
             </td>
             <td>
               <div class="btn-group" role="group">
-                <a href="{{ url_for('editar_moto', id=moto.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                <a href="{{ url_for('motos.editar_moto', id=moto.id) }}" class="btn btn-sm btn-warning" title="Editar">
                   <i class="fa-solid fa-edit"></i>
                 </a>
-                <a href="{{ url_for('moto_imagens', moto_id=moto.id) }}" class="btn btn-sm btn-info" title="Imagens">
+                <a href="{{ url_for('motos.moto_imagens', moto_id=moto.id) }}" class="btn btn-sm btn-info" title="Imagens">
                   <i class="fa-regular fa-images"></i>
                 </a>
-                <a href="{{ url_for('moto_documento', moto_id=moto.id) }}" class="btn btn-sm btn-secondary" title="Documento">
+                <a href="{{ url_for('motos.moto_documento', moto_id=moto.id) }}" class="btn btn-sm btn-secondary" title="Documento">
                   <i class="fa-solid fa-file-arrow-up"></i>
                 </a>
-                <form action="{{ url_for('excluir_moto', id=moto.id) }}" method="post" style="display:inline">
+                <form action="{{ url_for('motos.excluir_moto', id=moto.id) }}" method="post" style="display:inline">
                   <button type="submit" class="btn btn-sm btn-danger"
                           onclick="return confirm('Excluir esta moto?');" title="Excluir">
                     <i class="fa-solid fa-trash"></i>

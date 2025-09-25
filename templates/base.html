@@ -20,57 +20,54 @@
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('dashboard') }}">Olá Motos</a>
+      <a class="navbar-brand" href="{{ url_for('dashboard.home') }}">MotoRental</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Alternar navegação">
         <span class="navbar-toggler-icon"></span>
       </button>
 
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
+          <!-- Dashboard -->
           <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('dashboard.') %}active{% endif %}"
+               href="{{ url_for('dashboard.home') }}">
               <i class="fa-solid fa-gauge-high me-1"></i>Dashboard
             </a>
           </li>
 
+          <!-- Clientes -->
           <li class="nav-item">
-            <a class="nav-link
-               {% if request.endpoint and (request.endpoint == 'clientes'
-                    or request.endpoint.startswith('editar_cliente')
-                    or request.endpoint.startswith('cliente_habilitacao')) %}active{% endif %}"
-               href="{{ url_for('clientes') }}">
+            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('clientes.') %}active{% endif %}"
+               href="{{ url_for('clientes.listar_clientes') }}">
               <i class="fa-solid fa-user-group me-1"></i>Clientes
             </a>
           </li>
 
+          <!-- Motos -->
           <li class="nav-item">
-            <a class="nav-link
-               {% if request.endpoint and (request.endpoint == 'motos'
-                    or request.endpoint.startswith('editar_moto')
-                    or request.endpoint.startswith('moto_imagens')
-                    or request.endpoint.startswith('moto_documento')) %}active{% endif %}"
-               href="{{ url_for('motos') }}">
+            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('motos.') %}active{% endif %}"
+               href="{{ url_for('motos.listar_motos') }}">
               <i class="fa-solid fa-motorcycle me-1"></i>Motos
             </a>
           </li>
 
+          <!-- Locações -->
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle
-               {% if request.endpoint and (request.endpoint == 'locacoes'
-                    or request.endpoint.startswith('editar_locacao')
-                    or request.endpoint.startswith('servicos_locacao')
-                    or request.endpoint.startswith('locacoes_canceladas')) %}active{% endif %}"
+               {% if request.endpoint and request.endpoint.startswith('locacoes.') %}active{% endif %}"
                href="#" id="locacoesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="fa-solid fa-receipt me-1"></i>Locações
             </a>
             <ul class="dropdown-menu">
               <li>
-                <a class="dropdown-item {% if request.endpoint == 'locacoes' %}active{% endif %}" href="{{ url_for('locacoes') }}">
+                <a class="dropdown-item {% if request.endpoint == 'locacoes.listar_locacoes' %}active{% endif %}"
+                   href="{{ url_for('locacoes.listar_locacoes') }}">
                   Ativas
                 </a>
               </li>
               <li>
-                <a class="dropdown-item {% if request.endpoint == 'locacoes_canceladas' %}active{% endif %}" href="{{ url_for('locacoes_canceladas') }}">
+                <a class="dropdown-item {% if request.endpoint == 'locacoes.locacoes_canceladas' %}active{% endif %}"
+                   href="{{ url_for('locacoes.locacoes_canceladas') }}">
                   Canceladas
                 </a>
               </li>
@@ -78,6 +75,7 @@
           </li>
         </ul>
 
+        <!-- Login/Logout -->
         <ul class="navbar-nav ms-auto">
           {% if session.get('user_id') %}
             <li class="nav-item">
@@ -86,11 +84,16 @@
               </span>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket me-1"></i>Sair</a>
+              <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                <i class="fa-solid fa-right-from-bracket me-1"></i>Sair
+              </a>
             </li>
           {% else %}
             <li class="nav-item">
-              <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}" href="{{ url_for('login') }}"><i class="fa-solid fa-right-to-bracket me-1"></i>Entrar</a>
+              <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}"
+                 href="{{ url_for('auth.login') }}">
+                <i class="fa-solid fa-right-to-bracket me-1"></i>Entrar
+              </a>
             </li>
           {% endif %}
         </ul>

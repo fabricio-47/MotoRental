@@ -9,7 +9,7 @@
       </div>
       <div class="card-body">
 
-        {# Mensagens flash (se o base.html não já renderiza) #}
+        {# Mensagens flash (caso o base.html não as renderize) #}
         {% with messages = get_flashed_messages(with_categories=True) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -21,7 +21,7 @@
           {% endif %}
         {% endwith %}
 
-        <form method="post" novalidate>
+        <form method="post" action="{{ url_for('auth.login') }}" novalidate>
           {# suporte a redirect pós-login #}
           {% if request.args.get('next') %}
             <input type="hidden" name="next" value="{{ request.args.get('next') }}">
@@ -31,7 +31,7 @@
             <label class="form-label">E-mail</label>
             <div class="input-group">
               <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-              <input type="email" name="email" class="form-control" placeholder="email@exemplo.com" required>
+              <input type="email" name="email" class="form-control" placeholder="email@exemplo.com" required autofocus>
             </div>
           </div>
 
@@ -51,10 +51,10 @@
               </label>
             </div>
             <!-- Link opcional para recuperação -->
-            <!-- <a href="{{ url_for('recuperar_senha') }}">Esqueci minha senha</a> -->
+            <!-- <a href="{{ url_for('auth.recuperar_senha') }}">Esqueci minha senha</a> -->
           </div>
 
-          <button class="btn btn-success w-100">
+          <button class="btn btn-success w-100" type="submit">
             <i class="fa-solid fa-right-to-bracket me-1"></i> Entrar
           </button>
         </form>

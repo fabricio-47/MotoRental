@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2>Documento da Moto — {{ moto.modelo }} ({{ moto.placa }})</h2>
-  <a href="{{ url_for('motos') }}" class="btn btn-outline-secondary">
+  <a href="{{ url_for('motos.listar_motos') }}" class="btn btn-outline-secondary">
     <i class="fa-solid fa-arrow-left me-1"></i> Voltar
   </a>
 </div>
@@ -20,23 +20,23 @@
         <label class="form-label d-block">Documento atual</label>
         {% set arquivo = moto.documento_arquivo %}
         {% if arquivo and '.pdf' in arquivo|lower %}
-          <a href="{{ url_for('uploaded_documento', filename=arquivo) }}" 
+          <a href="{{ url_for('motos.uploaded_documento', filename=arquivo) }}" 
             target="_blank" class="btn btn-outline-primary btn-sm me-2" title="Ver PDF">
             <i class="fa-solid fa-file-pdf me-1"></i> Ver PDF
           </a>
         {% else %}
           <div class="mb-2">
-            <img src="{{ url_for('uploaded_documento', filename=arquivo) }}" 
+            <img src="{{ url_for('motos.uploaded_documento', filename=arquivo) }}" 
                 class="img-fluid rounded border" style="max-width: 520px;" alt="Documento da moto">
           </div>
-          <a href="{{ url_for('uploaded_documento', filename=arquivo) }}" 
+          <a href="{{ url_for('motos.uploaded_documento', filename=arquivo) }}" 
             target="_blank" class="btn btn-outline-primary btn-sm" title="Abrir em nova aba">
             <i class="fa-solid fa-up-right-from-square me-1"></i> Abrir em nova aba
           </a>
         {% endif %}
       </div>
 
-      <form method="post" action="{{ url_for('excluir_documento_moto', moto_id=moto.id) }}"
+      <form method="post" action="{{ url_for('motos.excluir_documento_moto', moto_id=moto.id) }}"
             onsubmit="return confirm('Tem certeza que deseja excluir o documento atual?')">
         <button type="submit" class="btn btn-danger btn-sm">
           <i class="fa-solid fa-trash me-1"></i> Excluir Documento
@@ -60,7 +60,7 @@
         <button type="submit" class="btn btn-success">
           <i class="fa-solid fa-cloud-arrow-up me-1"></i> Enviar Documento
         </button>
-        <a href="{{ url_for('motos') }}" class="btn btn-secondary">
+        <a href="{{ url_for('motos.listar_motos') }}" class="btn btn-secondary">
           <i class="fa-solid fa-xmark me-1"></i> Cancelar
         </a>
       </div>

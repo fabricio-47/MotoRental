@@ -1,94 +1,96 @@
 {% extends "base.html" %}
-
+{% block title %}Editar Locação #{{ locacao.id }}{% endblock %}
 {% block content %}
 <div class="container mt-4">
-    <h2>Editar Locação</h2>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Editar Locação #{{ locacao.id }}</h2>
 
     <!-- Botão de sincronizar boletos -->
-    <a href="{{ url_for('sincronizar_boletos_manual', id=locacao.id) }}" 
+    <a href="{{ url_for('locacoes.sincronizar_boletos_manual', id=locacao.id) }}" 
        class="btn btn-outline-info btn-sm me-2">
-        🔄 Sincronizar Boletos
+      🔄 Sincronizar Boletos
     </a>
+  </div>
 
-    <form method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label for="data_inicio" class="form-label">Data Início</label>
-            <input type="date" class="form-control" id="data_inicio" name="data_inicio"
-                   value="{{ locacao.data_inicio }}">
-        </div>
+  <form method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label for="data_inicio" class="form-label">Data Início</label>
+      <input type="date" class="form-control" id="data_inicio" name="data_inicio"
+             value="{{ locacao.data_inicio }}">
+    </div>
 
-        <div class="mb-3">
-            <label for="data_fim" class="form-label">Data Fim</label>
-            <input type="date" class="form-control" id="data_fim" name="data_fim"
-                   value="{{ locacao.data_fim if locacao.data_fim }}">
-        </div>
+    <div class="mb-3">
+      <label for="data_fim" class="form-label">Data Fim</label>
+      <input type="date" class="form-control" id="data_fim" name="data_fim"
+             value="{{ locacao.data_fim or '' }}">
+    </div>
 
-        <div class="mb-3">
-            <label for="valor" class="form-label">Valor (R$)</label>
-            <input type="number" step="0.01" class="form-control" id="valor" name="valor"
-                   value="{{ locacao.valor }}">
-        </div>
+    <div class="mb-3">
+      <label for="valor" class="form-label">Valor (R$)</label>
+      <input type="number" step="0.01" class="form-control" id="valor" name="valor"
+             value="{{ locacao.valor }}">
+    </div>
 
-        <div class="mb-3">
-            <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
-            <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select">
-                <option value="WEEKLY" {% if locacao.frequencia_pagamento=="WEEKLY" %}selected{% endif %}>Semanal</option>
-                <option value="MONTHLY" {% if locacao.frequencia_pagamento=="MONTHLY" %}selected{% endif %}>Mensal</option>
-            </select>
-        </div>
+    <div class="mb-3">
+      <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
+      <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select">
+        <option value="WEEKLY" {% if locacao.frequencia_pagamento == "WEEKLY" %}selected{% endif %}>Semanal</option>
+        <option value="MONTHLY" {% if locacao.frequencia_pagamento == "MONTHLY" %}selected{% endif %}>Mensal</option>
+      </select>
+    </div>
 
-        <div class="mb-3">
-            <label for="observacoes" class="form-label">Observações</label>
-            <textarea class="form-control" id="observacoes" name="observacoes">{{ locacao.observacoes }}</textarea>
-        </div>
+    <div class="mb-3">
+      <label for="observacoes" class="form-label">Observações</label>
+      <textarea class="form-control" id="observacoes" name="observacoes">{{ locacao.observacoes or '' }}</textarea>
+    </div>
 
-        <button type="submit" class="btn btn-success">Salvar Alterações</button>
-        <a href="{{ url_for('locacoes') }}" class="btn btn-secondary">Cancelar</a>
-    </form>
+    <button type="submit" class="btn btn-success">Salvar Alterações</button>
+    <a href="{{ url_for('locacoes.listar_locacoes') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
 
-    <hr>
+  <hr>
 
-    <!-- Listagem dos boletos vinculados -->
-    <h4>Boletos desta Locação</h4>
-    <table class="table table-striped mt-3">
-        <thead>
-            <tr>
-                <th>Vencimento</th>
-                <th>Valor</th>
-                <th>Status</th>
-                <th>Pago em</th>
-                <th>Ação</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for boleto in boletos %}
-            <tr>
-                <td>{{ boleto.data_vencimento }}</td>
-                <td>R$ {{ boleto.valor }}</td>
-                <td>
-                  {% if boleto.status == 'RECEIVED' %}
-                    <span class="badge bg-success">Pago</span>
-                  {% elif boleto.status == 'PENDING' %}
-                    <span class="badge bg-warning text-dark">Pendente</span>
-                  {% elif boleto.status == 'OVERDUE' %}
-                    <span class="badge bg-danger">Vencido</span>
-                  {% else %}
-                    <span class="badge bg-secondary">{{ boleto.status }}</span>
-                  {% endif %}
-                </td>
-                <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
-                <td>
-                    {% if boleto.boleto_url %}
-                    <a href="{{ boleto.boleto_url }}" target="_blank" class="btn btn-sm btn-primary">Ver Boleto</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="text-center">Nenhum boleto gerado ainda</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+  <!-- Listagem dos boletos vinculados -->
+  <h4>Boletos desta Locação</h4>
+  <table class="table table-striped mt-3">
+    <thead>
+      <tr>
+        <th>Vencimento</th>
+        <th>Valor</th>
+        <th>Status</th>
+        <th>Pago em</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for boleto in boletos %}
+      <tr>
+        <td>{{ boleto.data_vencimento }}</td>
+        <td>R$ {{ boleto.valor }}</td>
+        <td>
+          {% if boleto.status == 'RECEIVED' %}
+            <span class="badge bg-success">Pago</span>
+          {% elif boleto.status == 'PENDING' %}
+            <span class="badge bg-warning text-dark">Pendente</span>
+          {% elif boleto.status == 'OVERDUE' %}
+            <span class="badge bg-danger">Vencido</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ boleto.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
+        <td>
+          {% if boleto.boleto_url %}
+          <a href="{{ boleto.boleto_url }}" target="_blank" class="btn btn-sm btn-primary">Ver Boleto</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="text-center">Nenhum boleto gerado ainda</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}

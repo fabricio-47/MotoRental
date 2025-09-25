@@ -16,7 +16,7 @@
         <i class="fa-solid fa-users fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
-        <a href="{{ url_for('clientes') }}" class="btn btn-light btn-sm">Ver Clientes</a>
+        <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-light btn-sm">Ver Clientes</a>
       </div>
     </div>
   </div>
@@ -31,7 +31,7 @@
         <i class="fa-solid fa-motorcycle fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
-        <a href="{{ url_for('motos') }}" class="btn btn-light btn-sm">Ver Motos</a>
+        <a href="{{ url_for('motos.listar_motos') }}" class="btn btn-light btn-sm">Ver Motos</a>
       </div>
     </div>
   </div>
@@ -46,7 +46,7 @@
         <i class="fa-solid fa-key fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
-        <a href="{{ url_for('locacoes') }}" class="btn btn-dark btn-sm">Ver Locações</a>
+        <a href="{{ url_for('locacoes.listar_locacoes') }}" class="btn btn-dark btn-sm">Ver Locações</a>
       </div>
     </div>
   </div>
@@ -61,7 +61,7 @@
         <i class="fa-solid fa-ban fa-2xl opacity-75"></i>
       </div>
       <div class="card-footer text-center">
-        <a href="{{ url_for('locacoes_canceladas') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
+        <a href="{{ url_for('locacoes.locacoes_canceladas') }}" class="btn btn-light btn-sm">Ver Canceladas</a>
       </div>
     </div>
   </div>
@@ -73,13 +73,13 @@
     <i class="fa-solid fa-bolt me-1"></i> Atalhos Rápidos
   </div>
   <div class="card-body d-flex flex-wrap gap-2">
-    <a href="{{ url_for('clientes') }}" class="btn btn-outline-primary">
+    <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-outline-primary">
       <i class="fa-solid fa-user-plus me-1"></i> Novo Cliente
     </a>
-    <a href="{{ url_for('motos') }}" class="btn btn-outline-success">
+    <a href="{{ url_for('motos.listar_motos') }}" class="btn btn-outline-success">
       <i class="fa-solid fa-motorcycle me-1"></i> Nova Moto
     </a>
-    <a href="{{ url_for('locacoes') }}" class="btn btn-outline-dark">
+    <a href="{{ url_for('locacoes.listar_locacoes') }}" class="btn btn-outline-dark">
       <i class="fa-solid fa-file-signature me-1"></i> Nova Locação
     </a>
   </div>
@@ -121,7 +121,7 @@
         </div>
       </div>
       <div class="card-footer text-end">
-        <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+        <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
       </div>
     </div>
   </div>
@@ -173,7 +173,7 @@
         </div>
       </div>
       <div class="card-footer text-end">
-        <a href="{{ url_for('locacoes') }}" class="btn btn-sm btn-outline-dark">Ver todas</a>
+        <a href="{{ url_for('locacoes.listar_locacoes') }}" class="btn btn-sm btn-outline-dark">Ver todas</a>
       </div>
     </div>
   </div>

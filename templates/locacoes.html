@@ -1,10 +1,9 @@
-<!-- locacoes.html -->
 {% extends "base.html" %}
 {% block title %}Locações Ativas{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2>Locações Ativas</h2>
-  <a class="btn btn-outline-secondary" href="{{ url_for('locacoes_canceladas') }}">
+  <a class="btn btn-outline-secondary" href="{{ url_for('locacoes.locacoes_canceladas') }}">
     <i class="fa-solid fa-list me-1"></i>Ver Canceladas
   </a>
 </div>
@@ -110,7 +109,7 @@
             <td>
               {% if locacao.contrato_pdf %}
               <a class="btn btn-sm btn-outline-dark"
-                 href="{{ url_for('uploaded_contract', filename=locacao.contrato_pdf) }}"
+                 href="{{ url_for('locacoes.uploaded_contract', filename=locacao.contrato_pdf) }}"
                  target="_blank" title="Ver Contrato">
                 <i class="fa-solid fa-file-pdf"></i>
               </a>
@@ -145,16 +144,16 @@
             </td>
             <td>
               <div class="btn-group" role="group">
-                <a href="{{ url_for('editar_locacao', id=locacao.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                <a href="{{ url_for('locacoes.editar_locacao', id=locacao.id) }}" class="btn btn-sm btn-warning" title="Editar">
                   <i class="fa-solid fa-edit"></i>
                 </a>
-                <form action="{{ url_for('cancelar_locacao', id=locacao.id) }}" method="POST" style="display:inline;">
+                <form action="{{ url_for('locacoes.cancelar_locacao', id=locacao.id) }}" method="POST" style="display:inline;">
                   <button type="submit" class="btn btn-sm btn-danger"
                           onclick="return confirm('Tem certeza que deseja cancelar esta locação?')" title="Cancelar">
                     <i class="fa-solid fa-ban"></i>
                   </button>
                 </form>
-                <a href="{{ url_for('servicos_locacao', locacao_id=locacao.id) }}"
+                <a href="{{ url_for('servicos.servicos_locacao', locacao_id=locacao.id) }}"
                    class="btn btn-sm btn-info" title="Serviços">
                   <i class="fa-solid fa-wrench"></i>
                 </a>
