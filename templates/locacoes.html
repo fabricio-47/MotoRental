@@ -18,7 +18,7 @@
       <div class="row g-3">
         <div class="col-md-4">
           <label for="cliente_id" class="form-label">Cliente</label>
-          <select name="cliente_id" class="form-select" required>
+          <select id="cliente_id" name="cliente_id" class="form-select" required>
             <option value="">Selecione</option>
             {% for cliente in clientes %}
             <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
@@ -27,7 +27,7 @@
         </div>
         <div class="col-md-4">
           <label for="moto_id" class="form-label">Moto (Modelo - Placa)</label>
-          <select name="moto_id" class="form-select" required>
+          <select id="moto_id" name="moto_id" class="form-select" required>
             <option value="">Selecione</option>
             {% for moto in motos %}
             <option value="{{ moto.id }}">{{ moto.modelo }} - {{ moto.placa }}</option>
@@ -36,15 +36,15 @@
         </div>
         <div class="col-md-4">
           <label for="data_inicio" class="form-label">Data Início</label>
-          <input type="date" name="data_inicio" class="form-control" required>
+          <input id="data_inicio" type="date" name="data_inicio" class="form-control" required>
         </div>
         <div class="col-md-3">
           <label for="valor" class="form-label">Valor (R$)</label>
-          <input type="number" name="valor" min="0" step="0.01" class="form-control">
+          <input id="valor" type="number" name="valor" min="0" step="0.01" class="form-control">
         </div>
         <div class="col-md-3">
           <label for="frequencia_pagamento" class="form-label">Frequência de Pagamento</label>
-          <select name="frequencia_pagamento" class="form-select" required>
+          <select id="frequencia_pagamento" name="frequencia_pagamento" class="form-select" required>
             <option value="">Selecione...</option>
             <option value="WEEKLY">Semanal</option>
             <option value="MONTHLY">Mensal</option>
@@ -52,11 +52,11 @@
         </div>
         <div class="col-md-6">
           <label for="observacoes" class="form-label">Observações</label>
-          <textarea name="observacoes" class="form-control"></textarea>
+          <textarea id="observacoes" name="observacoes" class="form-control"></textarea>
         </div>
         <div class="col-md-12">
           <label for="contrato_pdf" class="form-label">Contrato (PDF)</label>
-          <input type="file" name="contrato_pdf" accept="application/pdf" class="form-control">
+          <input id="contrato_pdf" type="file" name="contrato_pdf" accept="application/pdf" class="form-control">
         </div>
         <div class="col-12">
           <button type="submit" class="btn btn-success mt-2">
@@ -99,23 +99,27 @@
             <td>{{ locacao.cliente_nome }}</td>
             <td>{{ locacao.moto_modelo }}</td>
             <td>{{ locacao.moto_placa }}</td>
-            <td>{{ locacao.data_inicio }}</td>
-            <td>{{ locacao.data_fim or '-' }}</td>
+            <td>
+              {% if locacao.data_inicio %}
+                {{ locacao.data_inicio.strftime('%d/%m/%Y') if locacao.data_inicio.__class__.__name__ in ['date', 'datetime'] else locacao.data_inicio }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if locacao.data_fim %}
+                {{ locacao.data_fim.strftime('%d/%m/%Y') if locacao.data_fim.__class__.__name__ in ['date', 'datetime'] else locacao.data_fim }}
+              {% else %}-{% endif %}
+            </td>
             <td>
               {% if locacao.frequencia_pagamento == 'WEEKLY' %}Semanal
               {% elif locacao.frequencia_pagamento == 'MONTHLY' %}Mensal
               {% else %}-{% endif %}
             </td>
             <td>
-              {% if locacao.contrato_pdf %}
               <a class="btn btn-sm btn-outline-dark"
-                 href="{{ url_for('locacoes.uploaded_contract', filename=locacao.contrato_pdf) }}"
+                 href="{{ url_for('locacoes.contrato_pdf', locacao_id=locacao.id) }}"
                  target="_blank" title="Ver Contrato">
                 <i class="fa-solid fa-file-pdf"></i>
               </a>
-              {% else %}
-              <span class="text-muted">—</span>
-              {% endif %}
             </td>
             <td>
               {% if locacao.boleto_url %}

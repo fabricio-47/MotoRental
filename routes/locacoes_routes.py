@@ -1,5 +1,6 @@
 import datetime as dt
 import requests
+import psycopg2
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 from database import get_db_connection
@@ -15,33 +16,75 @@ def listar_locacoes():
     cur = conn.cursor()
 
     if request.method == "POST":
-        cliente_id = request.form["cliente_id"]
-        moto_id = request.form["moto_id"]
-        data_inicio = request.form["data_inicio"]  # YYYY-MM-DD
-        data_fim = request.form.get("data_fim") or None
-        valor = request.form["valor"]
-        frequencia = request.form["frequencia_pagamento"]  # WEEKLY ou MONTHLY
-        observacoes = request.form.get("observacoes")
-
         try:
-            # Buscar dados do cliente/moto
+            # 1) Ler e validar inputs do form
+            cliente_id = request.form.get("cliente_id", type=int)
+            moto_id = request.form.get("moto_id", type=int)
+            data_inicio_str = (request.form.get("data_inicio") or "").strip()
+            data_fim_str = (request.form.get("data_fim") or "").strip() or None
+            valor_str = (request.form.get("valor") or "").strip()
+            observacoes = (request.form.get("observacoes") or "").strip() or None
+
+            # Frequência (aceita WEEKLY/MONTHLY direto ou SEMANAL/MENSAL e converte)
+            freq = (request.form.get("frequencia_pagamento") or "").strip().upper()
+            mapping = {"SEMANAL": "WEEKLY", "MENSAL": "MONTHLY"}
+            frequencia = mapping.get(freq, freq)
+
+            # Validações básicas
+            if frequencia not in ("WEEKLY", "MONTHLY"):
+                flash("Frequência inválida. Selecione semanal ou mensal.", "warning")
+                return redirect(url_for("locacoes.listar_locacoes"))
+
+            if not cliente_id or not moto_id:
+                flash("Cliente e moto são obrigatórios.", "warning")
+                return redirect(url_for("locacoes.listar_locacoes"))
+
+            if not data_inicio_str:
+                flash("Data de início é obrigatória.", "warning")
+                return redirect(url_for("locacoes.listar_locacoes"))
+
+            if not valor_str:
+                flash("Valor é obrigatório.", "warning")
+                return redirect(url_for("locacoes.listar_locacoes"))
+
+            # 2) Parse de datas e valor
+            # Se data vem como dd/mm/aaaa, converte para YYYY-MM-DD
+            def parse_date_flexible(s):
+                if "/" in s:  # dd/mm/aaaa
+                    return dt.datetime.strptime(s, "%d/%m/%Y").strftime("%Y-%m-%d")
+                else:  # já em YYYY-MM-DD
+                    return s
+
+            data_inicio = parse_date_flexible(data_inicio_str)
+            data_fim = parse_date_flexible(data_fim_str) if data_fim_str else None
+
+            # Converter valor (pt-BR -> float)
+            valor = float(valor_str.replace(".", "").replace(",", "."))
+
+            # 3) Buscar dados do cliente/moto
             cur.execute("SELECT asaas_id, nome FROM clientes WHERE id=%s", (cliente_id,))
             cliente = cur.fetchone()
-            if not cliente or not cliente[0]:
+            if not cliente:
+                flash("Cliente não encontrado.", "danger")
+                return redirect(url_for("locacoes.listar_locacoes"))
+            if not cliente[0]:
                 flash("Cliente sem integração Asaas (asaas_id ausente).", "danger")
                 return redirect(url_for("locacoes.listar_locacoes"))
 
-            cur.execute("SELECT modelo, placa FROM motos WHERE id=%s", (moto_id,))
+            cur.execute("SELECT modelo, placa, disponivel FROM motos WHERE id=%s", (moto_id,))
             moto = cur.fetchone()
             if not moto:
                 flash("Moto não encontrada.", "danger")
                 return redirect(url_for("locacoes.listar_locacoes"))
+            if not moto[2]:  # disponivel
+                flash("Moto indisponível para locação.", "warning")
+                return redirect(url_for("locacoes.listar_locacoes"))
 
-            # Criar assinatura no Asaas
+            # 4) Criar assinatura no Asaas
             subscription_data = {
                 "customer": cliente[0],
                 "billingType": "BOLETO",
-                "value": float(valor),
+                "value": valor,
                 "cycle": frequencia,
                 "description": f"Locação moto {moto[0]} - {moto[1]} ({cliente[1]})",
                 "nextDueDate": data_inicio
@@ -61,7 +104,7 @@ def listar_locacoes():
 
             asaas_subscription_id = resp.json().get("id")
 
-            # Salvar locação no banco
+            # 5) Salvar locação no banco
             cur.execute("""
                 INSERT INTO locacoes (
                     cliente_id, moto_id, data_inicio, data_fim,
@@ -70,16 +113,28 @@ def listar_locacoes():
             """, (cliente_id, moto_id, data_inicio, data_fim,
                   valor, frequencia, observacoes, asaas_subscription_id))
 
+            # 6) Marcar moto como indisponível
             cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
             conn.commit()
             flash("Locação criada e assinatura recorrente configurada no Asaas!", "success")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        except psycopg2.Error as e:
+            conn.rollback()
+            detalhe = getattr(e.diag, "message_detail", "")
+            if detalhe:
+                flash(f"Erro ao criar locação: {detalhe}", "danger")
+            else:
+                flash(f"Erro ao criar locação: {e.pgerror or str(e)}", "danger")
+        except ValueError as e:
+            conn.rollback()
+            flash(f"Data/valor inválido: {str(e)}", "danger")
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao criar locação: {e}", "danger")
+            flash(f"Erro inesperado ao criar locação: {str(e)}", "danger")
         finally:
             cur.close()
             conn.close()
-
         return redirect(url_for("locacoes.listar_locacoes"))
 
     # GET
@@ -122,7 +177,7 @@ def editar_locacao(id):
         try:
             cur.execute("""
                 UPDATE locacoes SET data_inicio=%s, data_fim=%s, valor=%s,
-                frequencia_pagamento=%s, observacoes=%s WHERE id=%s
+                       frequencia_pagamento=%s, observacoes=%s WHERE id=%s
             """, (data_inicio, data_fim, valor, frequencia, observacoes, id))
 
             cur.execute("SELECT asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
@@ -149,8 +204,10 @@ def editar_locacao(id):
                         json=patch_data,
                         timeout=30
                     )
-                if resp.status_code not in (200, 201):
-                    flash(f"Locação atualizada, mas falhou no Asaas: {resp.text}", "warning")
+                    if resp.status_code not in (200, 201):
+                        flash(f"Locação atualizada, mas falhou no Asaas: {resp.text}", "warning")
+                    else:
+                        flash("Locação e assinatura atualizadas!", "success")
                 else:
                     flash("Locação e assinatura atualizadas!", "success")
             else:
@@ -203,8 +260,6 @@ def canceladas():
     return render_template("locacoes_canceladas.html", locacoes=locacoes)
 
 # ==== Cancelar locação específica ====
-import psycopg2   # 👉 garanta que está no topo
-
 @locacoes_bp.route("/<int:id>/cancelar", methods=["POST"])
 @login_required
 def cancelar_locacao(id):
@@ -302,8 +357,8 @@ def sincronizar_boletos_manual(id):
             else:
                 cur.execute("""
                     INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor,
-                                         valor_pago, boleto_url, descricao,
-                                         data_vencimento, data_pagamento)
+                                       valor_pago, boleto_url, descricao,
+                                       data_vencimento, data_pagamento)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (id, asaas_payment_id, status, valor, net_value,
                       boleto_url, descricao, due_date, payment_date))
