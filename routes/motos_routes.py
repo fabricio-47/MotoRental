@@ -1,5 +1,6 @@
 import os
 import time
+import psycopg2
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app
 from flask_login import login_required
 from werkzeug.utils import secure_filename
@@ -94,18 +95,25 @@ def editar_moto(id):
 # ======================
 # Excluir moto
 # ======================
-@motos_bp.route("/<int:id>/deletar", methods=["POST"])
+@motos_bp.route("/<int:id>/excluir", methods=["POST"])
 @login_required
-def deletar_moto(id):
+def excluir_moto(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM motos WHERE id=%s", (id,))
         conn.commit()
-        flash("Moto removida com sucesso!", "info")
+        flash("Moto excluída com sucesso!", "info")
+    except psycopg2.errors.ForeignKeyViolation as e:
+        conn.rollback()
+        detalhe = getattr(e.diag, "message_detail", "")
+        if detalhe:
+            flash(f"Erro ao excluir moto: {detalhe}", "danger")
+        else:
+            flash("Não é possível excluir: a moto está vinculada a uma locação.", "danger")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao remover moto: {e}", "danger")
+        flash(f"Erro inesperado ao excluir moto: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -137,11 +145,10 @@ def moto_documento(moto_id):
         try:
             filename = secure_filename(file.filename)
             filename = _unique_filename(moto_id, filename)
-            pasta = os.path.join(current_app.config["UPLOAD_FOLDER"], "contratos")  # ou 'documentos' se preferir
+            pasta = os.path.join(current_app.config["UPLOAD_FOLDER"], "contratos")  
             os.makedirs(pasta, exist_ok=True)
             file.save(os.path.join(pasta, filename))
 
-            # Atualiza na moto
             cur.execute("UPDATE motos SET documento_arquivo=%s WHERE id=%s", (filename, moto_id))
             conn.commit()
             flash("Documento enviado com sucesso!", "success")
@@ -162,7 +169,6 @@ def excluir_documento_moto(moto_id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Obter nome do arquivo atual
         cur.execute("SELECT documento_arquivo FROM motos WHERE id=%s", (moto_id,))
         row = cur.fetchone()
         if row and row[0]:
@@ -186,7 +192,6 @@ def excluir_documento_moto(moto_id):
         conn.close()
     return redirect(url_for("motos.moto_documento", moto_id=moto_id))
 
-# Servir documento
 @motos_bp.route("/documentos/<filename>")
 @login_required
 def serve_documento_moto(filename):
@@ -222,7 +227,6 @@ def moto_imagens(moto_id):
                 filename = _unique_filename(moto_id, filename)
                 f.save(os.path.join(pasta, filename))
 
-                # Gravar no banco
                 cur.execute("""
                     INSERT INTO moto_imagens (moto_id, arquivo)
                     VALUES (%s, %s)
@@ -255,7 +259,6 @@ def excluir_imagem_moto(moto_id, img_id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Pegar nome do arquivo
         cur.execute("SELECT arquivo FROM moto_imagens WHERE id=%s AND moto_id=%s", (img_id, moto_id))
         row = cur.fetchone()
         if row:
@@ -282,7 +285,6 @@ def excluir_imagem_moto(moto_id, img_id):
 
     return redirect(url_for("motos.moto_imagens", moto_id=moto_id))
 
-# Servir imagens
 @motos_bp.route("/imagens/<filename>")
 @login_required
 def serve_imagem_moto(filename):
