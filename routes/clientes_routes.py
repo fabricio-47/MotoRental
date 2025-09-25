@@ -132,3 +132,37 @@ def cliente_habilitacao(id):
 def uploaded_habilitacao(filename):
     pasta = os.path.join(current_app.config["UPLOAD_FOLDER"], "habilitacoes")
     return send_from_directory(pasta, filename)
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_required
+from database import get_db_connection
+
+# supondo que já exista:
+# clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
+
+@clientes_bp.route("/<int:id>/excluir", methods=["POST"])
+@login_required
+def excluir_cliente(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Verifica se há locações vinculadas (ativas ou históricas)
+        cur.execute("SELECT COUNT(*) FROM locacoes WHERE cliente_id = %s", (id,))
+        qtd = cur.fetchone()[0]
+
+        if qtd and int(qtd) > 0:
+            flash("Não é possível excluir: existem locações vinculadas a este cliente.", "warning")
+            return redirect(url_for("clientes.listar_clientes"))
+
+        # Exclui o cliente
+        cur.execute("DELETE FROM clientes WHERE id = %s", (id,))
+        conn.commit()
+        flash("Cliente excluído com sucesso.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir cliente: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("clientes.listar_clientes"))
