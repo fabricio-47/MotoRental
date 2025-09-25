@@ -48,3 +48,29 @@ for folder in ["contratos", "habilitacoes", "motos"]:
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+import click
+from flask.cli import with_appcontext
+from database import get_db_connection
+
+@click.command("init-db")
+@with_appcontext
+def init_db_command():
+    """Inicializa o banco de dados aplicando o schema.sql"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        with open("schema.sql", "r", encoding="utf-8") as f:
+            sql_code = f.read()
+            cur.execute(sql_code)
+        conn.commit()
+        click.echo("✅ Banco de dados inicializado com sucesso!")
+    except Exception as e:
+        conn.rollback()
+        click.echo(f"❌ Erro ao inicializar o banco: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+# Registra o comando personalizado no Flask CLI
+app.cli.add_command(init_db_command)
