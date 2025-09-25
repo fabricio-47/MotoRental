@@ -303,3 +303,20 @@ def sincronizar_boletos_manual(id):
         cur.close()
         conn.close()
     return redirect(url_for("locacoes.editar_locacao", id=id))
+
+
+# ==== Servir PDF de contratos ====
+from flask import current_app, send_from_directory, abort
+import os
+
+@locacoes_bp.route("/contratos/<path:filename>")
+@login_required
+def uploaded_contract(filename):
+    base = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    directory = os.path.join(base, "contratos")
+
+    # proteção contra path traversal
+    if ".." in filename or filename.startswith("/"):
+        abort(400)
+
+    return send_from_directory(directory, filename, as_attachment=False)
