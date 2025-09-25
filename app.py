@@ -22,14 +22,17 @@ login_manager.login_view = "auth.login"
 login_manager.login_message = "Faça login para acessar esta página."
 login_manager.login_message_category = "info"
 
-# User loader
-class User(UserMixin):
-    def __init__(self, user_id):
-        self.id = user_id
-
+# User loader ajustado para funcionar com SimpleUser do auth_routes
 @login_manager.user_loader
 def load_user(user_id):
-    return User(user_id)
+    # Importa aqui para evitar import circular
+    from routes.auth_routes import SimpleUser
+    
+    # Para o teste com admin/admin, sempre retorna o mesmo usuário
+    # Em produção, aqui você buscaria no banco: SELECT * FROM usuarios WHERE id = user_id
+    if user_id == "1":  # ID do usuário admin de teste
+        return SimpleUser(id=1, email="admin")
+    return None
 
 # Registro dos blueprints
 app.register_blueprint(dashboard_bp)  # Dashboard na raiz "/"
