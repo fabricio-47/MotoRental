@@ -4,17 +4,20 @@ from flask_login import login_user, logout_user, login_required
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 # Login
-@auth_bp.route("/login", methods=["GET","POST"])
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        # Aqui implemente validação com seu banco / usuário admin
-        if username == "admin" and password == "admin":
+        email = request.form.get("email")     # 👈 bate com login.html
+        senha = request.form.get("senha")     # 👈 bate com login.html
+
+        # Aqui implemente validação real com banco / hash de senha
+        if email == "admin" and senha == "admin":
             session["user_id"] = 1
             flash("Login efetuado!", "success")
             return redirect(url_for("locacoes.listar_locacoes"))
+
         flash("Usuário ou senha incorretos!", "danger")
+
     return render_template("login.html")
 
 # Logout
