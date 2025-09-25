@@ -9,7 +9,7 @@
       </div>
       <div class="card-body">
 
-        {# Mensagens flash (caso o base.html não as renderize) #}
+        {# Mensagens flash (caso o base.html não já renderize) #}
         {% with messages = get_flashed_messages(with_categories=True) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -50,7 +50,7 @@
                 Lembrar-me
               </label>
             </div>
-            <!-- Link opcional para recuperação -->
+            <!-- Link de recuperação de senha comentado para não causar erro -->
             <!-- <a href="{{ url_for('auth.recuperar_senha') }}">Esqueci minha senha</a> -->
           </div>
 
