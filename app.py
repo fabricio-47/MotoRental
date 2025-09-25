@@ -22,15 +22,13 @@ login_manager.login_view = "auth.login"
 login_manager.login_message = "Faça login para acessar esta página."
 login_manager.login_message_category = "info"
 
-# User loader para Flask-Login
+# User loader
 class User(UserMixin):
     def __init__(self, user_id):
         self.id = user_id
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Aqui você pode validar se o user_id existe no banco
-    # Por simplicidade, retornamos sempre um User válido
     return User(user_id)
 
 # Registro dos blueprints
@@ -42,14 +40,11 @@ app.register_blueprint(locacoes_bp)
 app.register_blueprint(servicos_bp)
 app.register_blueprint(webhook_bp)
 
-# Criar pastas de upload se não existirem
-@app.before_first_request
-def create_upload_folders():
-    upload_folder = app.config.get("UPLOAD_FOLDER", "uploads")
-    folders = ["contratos", "habilitacoes", "motos"]
-    for folder in folders:
-        path = os.path.join(upload_folder, folder)
-        os.makedirs(path, exist_ok=True)
+# Criar pastas de upload logo na inicialização do app (Flask 3.x removeu before_first_request)
+upload_folder = app.config.get("UPLOAD_FOLDER", "uploads")
+for folder in ["contratos", "habilitacoes", "motos"]:
+    path = os.path.join(upload_folder, folder)
+    os.makedirs(path, exist_ok=True)
 
 if __name__ == "__main__":
     app.run(debug=True)
