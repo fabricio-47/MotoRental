@@ -1,7 +1,7 @@
--- Schema MotoRental Completo e Simplificado
--- Frequência de pagamento apenas SEMANAL e MENSAL
+-- Schema MotoRental Completo e Modular
+-- Frequência de pagamento apenas WEEKLY e MONTHLY
 
--- Extensão para emails case-insensitive
+-- Extensão para textos case-insensitive (emails, usernames)
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- Função para atualizar updated_at automaticamente
@@ -13,8 +13,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Usuários do sistema
-CREATE TABLE usuarios (
+-- ============================
+-- Usuários (para Flask-Login)
+-- ============================
+CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
     username citext NOT NULL UNIQUE,
     email citext NOT NULL UNIQUE,
@@ -24,8 +26,10 @@ CREATE TABLE usuarios (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================
 -- Clientes
-CREATE TABLE clientes (
+-- ============================
+CREATE TABLE IF NOT EXISTS clientes (
     id SERIAL PRIMARY KEY,
     nome TEXT NOT NULL,
     email citext NOT NULL UNIQUE,
@@ -40,8 +44,10 @@ CREATE TABLE clientes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================
 -- Motos
-CREATE TABLE motos (
+-- ============================
+CREATE TABLE IF NOT EXISTS motos (
     id SERIAL PRIMARY KEY,
     placa VARCHAR(20) NOT NULL UNIQUE,
     modelo TEXT NOT NULL,
@@ -53,8 +59,10 @@ CREATE TABLE motos (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================
 -- Locações
-CREATE TABLE locacoes (
+-- ============================
+CREATE TABLE IF NOT EXISTS locacoes (
     id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     moto_id INTEGER NOT NULL REFERENCES motos(id) ON DELETE CASCADE,
@@ -62,18 +70,19 @@ CREATE TABLE locacoes (
     data_fim DATE,
     cancelado BOOLEAN DEFAULT FALSE,
     observacoes TEXT,
-    contrato_pdf VARCHAR(255),
+
+    -- Assinatura Asaas
     asaas_subscription_id VARCHAR(255) UNIQUE,
 
-    -- Integração Asaas
+    -- Campos financeiros agregados/legados (usados por dashboard e compatibilidade)
     valor NUMERIC(12,2),
     boleto_url TEXT,
     pagamento_status VARCHAR(50) DEFAULT 'PENDING',
     valor_pago NUMERIC(12,2) DEFAULT 0,
     data_pagamento DATE,
-    asaas_payment_id VARCHAR(255),
+    asaas_payment_id VARCHAR(255), -- legado/compatibilidade
 
-    -- Frequência de pagamento (apenas SEMANAL ou MENSAL)
+    -- Frequência de pagamento (apenas WEEKLY ou MONTHLY)
     frequencia_pagamento VARCHAR(20) NOT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -88,8 +97,10 @@ CREATE TABLE locacoes (
     ))
 );
 
--- Histórico de boletos
-CREATE TABLE boletos (
+-- ============================
+-- Histórico de Boletos (Payments Asaas)
+-- ============================
+CREATE TABLE IF NOT EXISTS boletos (
     id SERIAL PRIMARY KEY,
     locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
     asaas_payment_id VARCHAR(255) UNIQUE NOT NULL,
@@ -110,16 +121,20 @@ CREATE TABLE boletos (
     ))
 );
 
--- Imagens das motos
-CREATE TABLE moto_imagens (
+-- ============================
+-- Imagens das Motos
+-- ============================
+CREATE TABLE IF NOT EXISTS moto_imagens (
     id SERIAL PRIMARY KEY,
     moto_id INTEGER NOT NULL REFERENCES motos(id) ON DELETE CASCADE,
     arquivo TEXT NOT NULL,
     data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Serviços extras nas locações
-CREATE TABLE servicos_locacao (
+-- ============================
+-- Serviços Extras nas Locações
+-- ============================
+CREATE TABLE IF NOT EXISTS servicos_locacao (
     id SERIAL PRIMARY KEY,
     locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
     descricao TEXT NOT NULL,
@@ -134,52 +149,77 @@ CREATE TABLE servicos_locacao (
 );
 
 -- ============================
--- ÍNDICES PARA PERFORMANCE
+-- Índices para performance
 -- ============================
+CREATE INDEX IF NOT EXISTS idx_clientes_cpf ON clientes(cpf);
+CREATE INDEX IF NOT EXISTS idx_clientes_email ON clientes(email);
+CREATE INDEX IF NOT EXISTS idx_clientes_asaas ON clientes(asaas_id);
 
-CREATE INDEX idx_clientes_cpf ON clientes(cpf);
-CREATE INDEX idx_clientes_email ON clientes(email);
-CREATE INDEX idx_clientes_asaas ON clientes(asaas_id);
+CREATE INDEX IF NOT EXISTS idx_motos_placa ON motos(placa);
+CREATE INDEX IF NOT EXISTS idx_motos_modelo ON motos(modelo);
 
-CREATE INDEX idx_motos_placa ON motos(placa);
-CREATE INDEX idx_motos_modelo ON motos(modelo);
+CREATE INDEX IF NOT EXISTS idx_locacoes_cliente_id ON locacoes(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_locacoes_moto_id ON locacoes(moto_id);
+CREATE INDEX IF NOT EXISTS idx_locacoes_subscription ON locacoes(asaas_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_locacoes_payment_id ON locacoes(asaas_payment_id);
+CREATE INDEX IF NOT EXISTS idx_locacoes_status ON locacoes(pagamento_status);
 
-CREATE INDEX idx_locacoes_cliente_id ON locacoes(cliente_id);
-CREATE INDEX idx_locacoes_moto_id ON locacoes(moto_id);
-CREATE INDEX idx_locacoes_subscription ON locacoes(asaas_subscription_id);
-CREATE INDEX idx_locacoes_payment_id ON locacoes(asaas_payment_id);
-CREATE INDEX idx_locacoes_status ON locacoes(pagamento_status);
+CREATE INDEX IF NOT EXISTS idx_boletos_locacao_id ON boletos(locacao_id);
+CREATE INDEX IF NOT EXISTS idx_boletos_status ON boletos(status);
+CREATE INDEX IF NOT EXISTS idx_boletos_due_date ON boletos(data_vencimento);
 
-CREATE INDEX idx_boletos_locacao_id ON boletos(locacao_id);
-CREATE INDEX idx_boletos_status ON boletos(status);
-CREATE INDEX idx_boletos_due_date ON boletos(data_vencimento);
-
-CREATE INDEX idx_servicos_locacao_id ON servicos_locacao(locacao_id);
+CREATE INDEX IF NOT EXISTS idx_servicos_locacao_id ON servicos_locacao(locacao_id);
 
 -- ============================
--- TRIGGERS DE UPDATED_AT
+-- Triggers de updated_at
 -- ============================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_usuarios_updated'
+    ) THEN
+        CREATE TRIGGER trg_usuarios_updated 
+            BEFORE UPDATE ON usuarios
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
 
-CREATE TRIGGER trg_usuarios_updated 
-    BEFORE UPDATE ON usuarios
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_clientes_updated'
+    ) THEN
+        CREATE TRIGGER trg_clientes_updated 
+            BEFORE UPDATE ON clientes
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
 
-CREATE TRIGGER trg_clientes_updated 
-    BEFORE UPDATE ON clientes
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_motos_updated'
+    ) THEN
+        CREATE TRIGGER trg_motos_updated 
+            BEFORE UPDATE ON motos
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
 
-CREATE TRIGGER trg_motos_updated 
-    BEFORE UPDATE ON motos
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_locacoes_updated'
+    ) THEN
+        CREATE TRIGGER trg_locacoes_updated 
+            BEFORE UPDATE ON locacoes
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
 
-CREATE TRIGGER trg_locacoes_updated 
-    BEFORE UPDATE ON locacoes
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_boletos_updated'
+    ) THEN
+        CREATE TRIGGER trg_boletos_updated 
+            BEFORE UPDATE ON boletos
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
 
-CREATE TRIGGER trg_boletos_updated 
-    BEFORE UPDATE ON boletos
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_servicos_updated 
-    BEFORE UPDATE ON servicos_locacao
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_servicos_updated'
+    ) THEN
+        CREATE TRIGGER trg_servicos_updated 
+            BEFORE UPDATE ON servicos_locacao
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+END$$;
