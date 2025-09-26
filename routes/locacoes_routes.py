@@ -339,7 +339,12 @@ def cancelar_locacao(id):
             flash("Locação não encontrada.", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
 
-        asaas_subscription_id, moto_id = row[0], row[1]
+        if isinstance(row, dict):
+            asaas_subscription_id = row.get("asaas_subscription_id")
+            moto_id = row.get("moto_id")
+        else:
+            asaas_subscription_id = row[0]
+            moto_id = row[1]
 
         # Cancela assinatura no Asaas se existir
         if asaas_subscription_id:
