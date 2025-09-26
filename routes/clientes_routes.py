@@ -1,168 +1,104 @@
-import os
-import psycopg2   # 👉 coloque no topo do arquivo se ainda não tiver
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app
+import requests
+from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required
-from database import get_db_connection
-from werkzeug.utils import secure_filename
+from psycopg2.extras import RealDictCursor
+from database import get_db_connection  # Ajuste conforme seu projeto
+from config import Config
 
 clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
 
-# ======================
-# Listar e cadastrar cliente
-# ======================
 @clientes_bp.route("/", methods=["GET", "POST"])
 @login_required
-def listar_clientes():
-    conn = get_db_connection()
-    cur = conn.cursor()
-
+def listar_e_criar_clientes():
     if request.method == "POST":
-        nome = request.form["nome"]
-        email = request.form["email"]
-        telefone = request.form["telefone"]
-        cpf = request.form.get("cpf")
-        endereco = request.form.get("endereco")
-        data_nascimento = request.form.get("data_nascimento") or None
-        observacoes = request.form.get("observacoes")
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip()
+        telefone = request.form.get("telefone", "").strip()
+        cpf = request.form.get("cpf", "").strip()
+        endereco = request.form.get("endereco", "").strip()
+        data_nascimento = request.form.get("data_nascimento", "").strip()
+        observacoes = request.form.get("observacoes", "").strip()
 
-        cur.execute("""
-            INSERT INTO clientes (nome, email, telefone, cpf, endereco, data_nascimento, observacoes)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)
-        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes))
-        conn.commit()
-        flash("Cliente cadastrado com sucesso!", "success")
-        return redirect(url_for("clientes.listar_clientes"))
+        if not nome or not email or not telefone:
+            flash("Nome, email e telefone são obrigatórios.", "warning")
+            return redirect(url_for("clientes.listar_e_criar_clientes"))
 
-    cur.execute("SELECT * FROM clientes ORDER BY nome")
-    clientes = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template("clientes.html", clientes=clientes)
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
 
-# ======================
-# Editar cliente
-# ======================
-@clientes_bp.route("/<int:id>/editar", methods=["GET", "POST"])
-@login_required
-def editar_cliente(id):
-    conn = get_db_connection()
-    cur = conn.cursor()
+        try:
+            # Verifica se cliente já existe localmente pelo CPF ou email
+            cur.execute("SELECT id, asaas_id FROM clientes WHERE cpf=%s OR email=%s", (cpf, email))
+            cliente_existente = cur.fetchone()
 
-    if request.method == "POST":
-        nome = request.form["nome"]
-        email = request.form["email"]
-        telefone = request.form["telefone"]
-        cpf = request.form.get("cpf")
-        endereco = request.form.get("endereco")
-        data_nascimento = request.form.get("data_nascimento") or None
-        observacoes = request.form.get("observacoes")
+            if cliente_existente:
+                flash("Cliente já cadastrado localmente.", "info")
+                return redirect(url_for("clientes.listar_e_criar_clientes"))
 
-        cur.execute("""
-            UPDATE clientes SET nome=%s, email=%s, telefone=%s, cpf=%s,
-            endereco=%s, data_nascimento=%s, observacoes=%s
-            WHERE id=%s
-        """, (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, id))
-        conn.commit()
-        flash("Cliente atualizado com sucesso!", "success")
-        return redirect(url_for("clientes.listar_clientes"))
+            # Busca cliente no Asaas pelo CPF (document) ou email
+            headers = {"access_token": Config.ASAAS_API_KEY}
+            params = {}
+            if cpf:
+                params["cpfCnpj"] = cpf
+            else:
+                params["email"] = email
 
-    cur.execute("SELECT * FROM clientes WHERE id=%s", (id,))
-    cliente = cur.fetchone()
-    cur.close()
-    conn.close()
-    return render_template("editar_cliente.html", cliente=cliente)
+            resp = requests.get(f"{Config.ASAAS_BASE_URL}/customers", headers=headers, params=params, timeout=30)
+            if resp.status_code != 200:
+                flash(f"Erro ao consultar Asaas: {resp.status_code}", "danger")
+                return redirect(url_for("clientes.listar_e_criar_clientes"))
 
-# ======================
-# Excluir cliente
-# ======================
-@clientes_bp.route("/<int:id>/deletar", methods=["POST"])
-@login_required
-def deletar_cliente(id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM clientes WHERE id=%s", (id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    flash("Cliente removido!", "info")
-    return redirect(url_for("clientes.listar_clientes"))
+            data = resp.json()
+            asaas_id = None
+            if data.get("data"):
+                # Cliente encontrado no Asaas
+                asaas_id = data["data"][0]["id"]
 
-# ======================
-# Upload da habilitação (CNH)
-# ======================
-@clientes_bp.route("/<int:id>/habilitacao", methods=["GET", "POST"])
-@login_required
-def cliente_habilitacao(id):
-    conn = get_db_connection()
-    cur = conn.cursor()
+            # Se não encontrou no Asaas, cria novo cliente
+            if not asaas_id:
+                cliente_payload = {
+                    "name": nome,
+                    "email": email,
+                    "phone": telefone,
+                    "cpfCnpj": cpf,
+                    "externalReference": None,
+                    "postalCode": None,
+                    "address": endereco,
+                    "notificationDisabled": False,
+                }
+                resp_create = requests.post(f"{Config.ASAAS_BASE_URL}/customers", headers=headers, json=cliente_payload, timeout=30)
+                if resp_create.status_code not in (200, 201):
+                    flash(f"Erro ao criar cliente no Asaas: {resp_create.status_code}", "danger")
+                    return redirect(url_for("clientes.listar_e_criar_clientes"))
+                asaas_id = resp_create.json().get("id")
 
-    if request.method == "POST":
-        if "arquivo" not in request.files:
-            flash("Nenhum arquivo enviado.", "danger")
-            return redirect(request.url)
-
-        file = request.files["arquivo"]
-        if file.filename == "":
-            flash("Nenhum arquivo selecionado.", "danger")
-            return redirect(request.url)
-
-        if file:
-            filename = secure_filename(file.filename)
-            pasta = os.path.join(current_app.config["UPLOAD_FOLDER"], "habilitacoes")
-            os.makedirs(pasta, exist_ok=True)
-            filepath = os.path.join(pasta, filename)
-            file.save(filepath)
-
-            # atualizar no banco
-            cur.execute("UPDATE clientes SET habilitacao_arquivo=%s WHERE id=%s", (filename, id))
+            # Salva cliente local com o asaas_id
+            cur.execute("""
+                INSERT INTO clientes (nome, email, telefone, cpf, endereco, data_nascimento, observacoes, asaas_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (nome, email, telefone, cpf, endereco, data_nascimento or None, observacoes or None, asaas_id))
             conn.commit()
-            flash("Habilitação enviada com sucesso!", "success")
-            return redirect(url_for("clientes.cliente_habilitacao", id=id))
 
-    cur.execute("SELECT habilitacao_arquivo FROM clientes WHERE id=%s", (id,))
-    cliente = cur.fetchone()
-    cur.close()
-    conn.close()
-    return render_template("cliente_habilitacao.html", cliente=cliente, id=id)
+            flash("Cliente cadastrado com sucesso e integrado ao Asaas.", "success")
+            return redirect(url_for("clientes.listar_e_criar_clientes"))
 
-# ======================
-# Download da CNH
-# ======================
-@clientes_bp.route("/habilitacoes/<filename>")
-@login_required
-def uploaded_habilitacao(filename):
-    pasta = os.path.join(current_app.config["UPLOAD_FOLDER"], "habilitacoes")
-    return send_from_directory(pasta, filename)
+        except Exception as e:
+            conn.rollback()
+            print("Erro ao criar cliente:", e)
+            flash("Erro inesperado ao criar cliente.", "danger")
+            return redirect(url_for("clientes.listar_e_criar_clientes"))
+        finally:
+            cur.close()
+            conn.close()
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required
-from database import get_db_connection
-
-# supondo que já exista:
-# clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
-
-
-
-@clientes_bp.route("/<int:id>/excluir", methods=["POST"])
-@login_required
-def excluir_cliente(id):
+    # GET: lista clientes e renderiza o template clientes.html (que já tem o formulário)
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cur.execute("DELETE FROM clientes WHERE id = %s", (id,))
-        conn.commit()
-        flash("Cliente excluído com sucesso.", "success")
-
-    except psycopg2.Error as e:
-        conn.rollback()
-        motivo = e.pgerror or str(e)
-        detalhe = getattr(e.diag, "message_detail", "")
-        if detalhe:
-            flash(f"Erro ao excluir cliente: {detalhe}", "danger")
-        else:
-            flash(f"Erro ao excluir cliente: {motivo}", "danger")
-
+        cur.execute("SELECT * FROM clientes ORDER BY nome ASC")
+        clientes = cur.fetchall()
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for("clientes.listar_clientes"))
+
+    return render_template("clientes.html", clientes=clientes)
