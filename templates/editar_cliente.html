@@ -1,138 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Editar Cliente{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2>Editar Cliente</h2>
-  <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-outline-secondary">
-    <i class="fa-solid fa-arrow-left me-1"></i> Voltar
-  </a>
-</div>
+<div class="container mt-4">
+  <h1>Editar Cliente</h1>
 
-{% if cliente.asaas_id %}
-<div class="alert alert-info">
-  <i class="fa-solid fa-plug-circle-check me-1"></i>
-  Integrado ao Asaas:
-  <span class="badge bg-primary">{{ cliente.asaas_id }}</span>
-</div>
-{% endif %}
-
-<div class="card shadow-sm mb-4">
-  <div class="card-header bg-primary text-white">
-    <i class="fa-solid fa-user-pen me-1"></i> Dados do Cliente
-  </div>
-  <div class="card-body">
-    <form method="post" enctype="multipart/form-data">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Nome</label>
-          <input type="text" name="nome" class="form-control" value="{{ cliente.nome }}" required>
+  <!-- Exibe mensagens flash -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">E-mail</label>
-          <input type="email" name="email" class="form-control" value="{{ cliente.email }}" required>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Telefone</label>
-          <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone or '' }}">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">CPF</label>
-          <input type="text" name="cpf" class="form-control" value="{{ cliente.cpf or '' }}">
-        </div>
-        <div class="col-md-12">
-          <label class="form-label">Endereço</label>
-          <input type="text" name="endereco" class="form-control" value="{{ cliente.endereco or '' }}">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Data de Nascimento</label>
-          <input type="date" name="data_nascimento" class="form-control" value="{{ cliente.data_nascimento or '' }}">
-        </div>
-        <div class="col-md-12">
-          <label class="form-label">Observações</label>
-          <textarea name="observacoes" class="form-control" rows="3">{{ cliente.observacoes or '' }}</textarea>
-        </div>
-      </div>
-
-      <hr class="my-4">
-
-      <div class="row g-3">
-        <div class="col-12">
-          <label class="form-label">Habilitação (PDF/Imagem)</label>
-          {% if cliente.habilitacao_arquivo %}
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <a href="{{ url_for('clientes.uploaded_habilitacao', filename=cliente.habilitacao_arquivo) }}"
-                 target="_blank"
-                 class="btn btn-sm btn-outline-primary" title="Ver Habilitação">
-                <i class="fa-solid fa-id-card me-1"></i> Ver Habilitação
-              </a>
-              <form method="post" action="{{ url_for('clientes.excluir_habilitacao', id=cliente.id) }}" onsubmit="return confirm('Remover habilitação atual?');">
-                <button class="btn btn-sm btn-danger" type="submit" title="Remover Habilitação">
-                  <i class="fa-solid fa-trash-can me-1"></i> Remover
-                </button>
-              </form>
-            </div>
-          {% else %}
-            <p class="text-muted mb-2">Nenhuma habilitação anexada.</p>
-          {% endif %}
-          <input type="file" name="habilitacao" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-          <small class="text-muted">Envie um novo arquivo para substituir. Deixe em branco para manter o atual.</small>
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <button class="btn btn-success">
-          <i class="fa-solid fa-save me-1"></i> Salvar Alterações
-        </button>
-        <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-secondary">
-          <i class="fa-solid fa-xmark me-1"></i> Cancelar
-        </a>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Histórico de Boletos do Cliente -->
-<div class="card shadow-sm">
-  <div class="card-header bg-dark text-white">
-    <i class="fa-solid fa-file-invoice-dollar me-1"></i> Histórico de Boletos
-  </div>
-  <div class="card-body">
-    {% if boletos_cliente %}
-      <table class="table table-striped align-middle">
-        <thead>
-          <tr>
-            <th>Locação</th>
-            <th>Vencimento</th>
-            <th>Valor</th>
-            <th>Status</th>
-            <th>Pago em</th>
-            <th>Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for boleto in boletos_cliente %}
-          <tr class="{% if boleto.status == 'OVERDUE' %}table-danger{% elif boleto.status == 'RECEIVED' %}table-success{% endif %}">
-            <td>#{{ boleto.locacao_id }}
-              {% if boleto.cancelado %}<span class="badge bg-danger ms-1">Locação Cancelada</span>{% endif %}
-            </td>
-            <td>{{ boleto.data_vencimento }}</td>
-            <td>R$ {{ boleto.valor }}</td>
-            <td>{{ boleto.status }}</td>
-            <td>{{ boleto.data_pagamento if boleto.data_pagamento else "-" }}</td>
-            <td>
-              {% if boleto.boleto_url %}
-              <a href="{{ boleto.boleto_url }}" target="_blank" class="btn btn-sm btn-primary">
-                <i class="fa-solid fa-up-right-from-square"></i> Ver
-              </a>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="text-muted">Nenhum boleto encontrado para este cliente.</p>
+      {% endfor %}
     {% endif %}
-  </div>
+  {% endwith %}
+
+  <form method="POST" action="{{ url_for('clientes.editar_cliente', id=cliente.id) }}">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="nome" class="form-label">Nome *</label>
+        <input type="text" class="form-control" id="nome" name="nome" value="{{ cliente.nome }}" required>
+      </div>
+      <div class="col-md-6">
+        <label for="email" class="form-label">Email *</label>
+        <input type="email" class="form-control" id="email" name="email" value="{{ cliente.email }}" required>
+      </div>
+      <div class="col-md-4">
+        <label for="telefone" class="form-label">Telefone *</label>
+        <input type="text" class="form-control" id="telefone" name="telefone" value="{{ cliente.telefone }}" required>
+      </div>
+      <div class="col-md-4">
+        <label for="cpf" class="form-label">CPF</label>
+        <input type="text" class="form-control" id="cpf" name="cpf" value="{{ cliente.cpf }}">
+      </div>
+      <div class="col-md-4">
+        <label for="data_nascimento" class="form-label">Data de Nascimento</label>
+        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ cliente.data_nascimento }}">
+      </div>
+      <div class="col-12">
+        <label for="endereco" class="form-label">Endereço</label>
+        <input type="text" class="form-control" id="endereco" name="endereco" value="{{ cliente.endereco }}">
+      </div>
+      <div class="col-12">
+        <label for="observacoes" class="form-label">Observações</label>
+        <textarea class="form-control" id="observacoes" name="observacoes" rows="3">{{ cliente.observacoes }}</textarea>
+      </div>
+    </div>
+    <div class="mt-3">
+      <button type="submit" class="btn btn-success">Salvar Alterações</button>
+      <a href="{{ url_for('clientes.listar_clientes') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
 </div>
+
+<!-- Scripts extras, se você usa máscaras ou validações -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var telefoneInput = document.getElementById('telefone');
+    var cpfInput = document.getElementById('cpf');
+
+    if (telefoneInput) {
+      telefoneInput.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
+      });
+    }
+
+    if (cpfInput) {
+      cpfInput.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '')
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      });
+    }
+  });
+</script>
 {% endblock %}
