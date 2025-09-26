@@ -1,10 +1,12 @@
 import datetime as dt
 import requests
 import psycopg2
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, abort
 from flask_login import login_required
 from database import get_db_connection
 from config import Config
+from werkzeug.utils import secure_filename
+import os
 
 locacoes_bp = Blueprint("locacoes", __name__, url_prefix="/locacoes")
 
@@ -12,8 +14,7 @@ locacoes_bp = Blueprint("locacoes", __name__, url_prefix="/locacoes")
 @locacoes_bp.route("/", methods=["GET", "POST"])
 @login_required
 def listar_locacoes():
-    import os, traceback, datetime as dt
-    from werkzeug.utils import secure_filename
+    import traceback
     from psycopg2.extras import RealDictCursor
 
     breadcrumb = "inicio"
@@ -25,8 +26,8 @@ def listar_locacoes():
             # Locações ativas
             cur.execute("""
                 SELECT l.id, c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa,
-                       l.data_inicio, l.data_fim, l.frequencia_pagamento, 
-                       l.contrato_arquivo, l.boleto_url, l.pagamento_status, l.valor_pago
+                l.data_inicio, l.data_fim, l.frequencia_pagamento, 
+                l.contrato_arquivo, l.boleto_url, l.pagamento_status, l.valor_pago
                 FROM locacoes l
                 JOIN clientes c ON c.id = l.cliente_id
                 JOIN motos m ON m.id = l.moto_id
@@ -229,6 +230,7 @@ def listar_locacoes():
         conn.close()
 
     return redirect(url_for("locacoes.listar_locacoes"))
+
 # ==== Editar locação + listar boletos ====
 @locacoes_bp.route("/<int:id>/editar", methods=["GET", "POST"])
 @login_required
@@ -246,7 +248,7 @@ def editar_locacao(id):
         try:
             cur.execute("""
                 UPDATE locacoes SET data_inicio=%s, data_fim=%s, valor=%s,
-                       frequencia_pagamento=%s, observacoes=%s WHERE id=%s
+                frequencia_pagamento=%s, observacoes=%s WHERE id=%s
             """, (data_inicio, data_fim, valor, frequencia, observacoes, id))
 
             cur.execute("SELECT asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
@@ -273,31 +275,27 @@ def editar_locacao(id):
                         json=patch_data,
                         timeout=30
                     )
-                    if resp.status_code not in (200, 201):
-                        flash(f"Locação atualizada, mas falhou no Asaas: {resp.text}", "warning")
-                    else:
-                        flash("Locação e assinatura atualizadas!", "success")
+                if resp.status_code not in (200, 201):
+                    flash(f"Locação atualizada, mas falhou no Asaas: {resp.text}", "warning")
                 else:
                     flash("Locação e assinatura atualizadas!", "success")
             else:
-                flash("Locação atualizada (sem assinatura Asaas).", "success")
-
-            conn.commit()
+                flash("Locação e assinatura atualizadas!", "success")
         except Exception as e:
-            conn.rollback()
             flash(f"Erro ao atualizar locação: {e}", "danger")
-        finally:
-            cur.close()
-            conn.close()
+
+        conn.commit()
+        cur.close()
+        conn.close()
         return redirect(url_for("locacoes.editar_locacao", id=id))
 
-    # GET
+    # Método GET: buscar dados para exibir no formulário
     cur.execute("SELECT id, cliente_id, moto_id, data_inicio, data_fim, valor, frequencia_pagamento, observacoes, asaas_subscription_id FROM locacoes WHERE id=%s", (id,))
     locacao = cur.fetchone()
 
     cur.execute("""
         SELECT id, asaas_payment_id, status, valor, valor_pago, boleto_url,
-               descricao, data_vencimento, data_pagamento
+        descricao, data_vencimento, data_pagamento
         FROM boletos WHERE locacao_id=%s
         ORDER BY data_vencimento DESC NULLS LAST, id DESC
     """, (id,))
@@ -315,8 +313,8 @@ def canceladas():
     cur = conn.cursor()
     cur.execute("""
         SELECT l.id, l.data_inicio, l.data_fim, l.valor, l.frequencia_pagamento,
-               l.pagamento_status, l.valor_pago, l.asaas_subscription_id, l.boleto_url,
-               c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
+        l.pagamento_status, l.valor_pago, l.asaas_subscription_id, l.boleto_url,
+        c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
         FROM locacoes l
         JOIN clientes c ON l.cliente_id = c.id
         JOIN motos m ON l.moto_id = m.id
@@ -418,7 +416,7 @@ def sincronizar_boletos_manual(id):
                 cur.execute("""
                     UPDATE boletos
                     SET status=%s, valor=%s, valor_pago=%s, boleto_url=%s,
-                        descricao=%s, data_vencimento=%s, data_pagamento=%s
+                    descricao=%s, data_vencimento=%s, data_pagamento=%s
                     WHERE asaas_payment_id=%s
                 """, (status, valor, net_value, boleto_url,
                       descricao, due_date, payment_date, asaas_payment_id))
@@ -426,8 +424,8 @@ def sincronizar_boletos_manual(id):
             else:
                 cur.execute("""
                     INSERT INTO boletos (locacao_id, asaas_payment_id, status, valor,
-                                       valor_pago, boleto_url, descricao,
-                                       data_vencimento, data_pagamento)
+                    valor_pago, boleto_url, descricao,
+                    data_vencimento, data_pagamento)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (id, asaas_payment_id, status, valor, net_value,
                       boleto_url, descricao, due_date, payment_date))
@@ -445,17 +443,21 @@ def sincronizar_boletos_manual(id):
 
 
 # ==== Servir PDF de contratos ====
-from flask import current_app, send_from_directory, abort
-import os
-
-@locacoes_bp.route("/contratos/<path:filename>")
+@locacoes_bp.route("/contrato/<int:locacao_id>/pdf")
 @login_required
-def uploaded_contract(filename):
-    base = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    directory = os.path.join(base, "contratos")
+def contrato_pdf(locacao_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT contrato_arquivo FROM locacoes WHERE id = %s", (locacao_id,))
+        result = cur.fetchone()
+        if not result or not result[0]:
+            flash("Contrato não encontrado.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        contrato_arquivo = result[0]
 
-    # proteção contra path traversal
-    if ".." in filename or filename.startswith("/"):
-        abort(400)
-
-    return send_from_directory(directory, filename, as_attachment=False)
+        uploads_dir = os.path.join(os.getcwd(), "uploads", "contratos")
+        return send_from_directory(directory=uploads_dir, filename=contrato_arquivo)
+    finally:
+        cur.close()
+        conn.close()
