@@ -2,7 +2,7 @@ import requests
 from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required
 from psycopg2.extras import RealDictCursor
-from database import get_db_connection  # Ajuste conforme seu projeto
+from database import get_db_connection
 from config import Config
 
 clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
@@ -91,7 +91,7 @@ def listar_clientes():
             cur.close()
             conn.close()
 
-    # GET: lista clientes e renderiza o template clientes.html (que já tem o formulário)
+    # GET: lista clientes e renderiza o template clientes.html
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
@@ -102,3 +102,49 @@ def listar_clientes():
         conn.close()
 
     return render_template("clientes.html", clientes=clientes)
+
+
+@clientes_bp.route("/editar/<int:id>", methods=["GET", "POST"])
+@login_required
+def editar_cliente(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip()
+        telefone = request.form.get("telefone", "").strip()
+        cpf = request.form.get("cpf", "").strip()
+        endereco = request.form.get("endereco", "").strip()
+        data_nascimento = request.form.get("data_nascimento", "").strip()
+        observacoes = request.form.get("observacoes", "").strip()
+
+        try:
+            cur.execute("""
+                UPDATE clientes SET nome=%s, email=%s, telefone=%s, cpf=%s, endereco=%s,
+                data_nascimento=%s, observacoes=%s WHERE id=%s
+            """, (nome, email, telefone, cpf, endereco, data_nascimento or None, observacoes or None, id))
+            conn.commit()
+            flash("Cliente atualizado com sucesso.", "success")
+            return redirect(url_for("clientes.listar_clientes"))
+        except Exception as e:
+            conn.rollback()
+            print("Erro ao atualizar cliente:", e)
+            flash("Erro ao atualizar cliente.", "danger")
+            return redirect(url_for("clientes.editar_cliente", id=id))
+        finally:
+            cur.close()
+            conn.close()
+
+    # GET: busca cliente para preencher formulário
+    try:
+        cur.execute("SELECT * FROM clientes WHERE id=%s", (id,))
+        cliente = cur.fetchone()
+        if not cliente:
+            flash("Cliente não encontrado.", "warning")
+            return redirect(url_for("clientes.listar_clientes"))
+    finally:
+        cur.close()
+        conn.close()
+
+    return render_template("editar_cliente.html", cliente=cliente)
