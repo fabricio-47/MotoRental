@@ -1,4 +1,4 @@
--- Schema MotoRental Completo e Modular
+-- Schema MotoRental Atualizado
 -- Frequência de pagamento apenas WEEKLY e MONTHLY
 
 -- Extensão para textos case-insensitive (emails, usernames)
@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS clientes (
     observacoes TEXT,
     habilitacao_arquivo VARCHAR(255),
     asaas_id VARCHAR(255) UNIQUE,
-    ativo BOOLEAN DEFAULT TRUE,  -- Soft delete
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -78,13 +77,13 @@ CREATE TABLE IF NOT EXISTS locacoes (
     -- Assinatura Asaas
     asaas_subscription_id VARCHAR(255) UNIQUE,
 
-    -- Campos financeiros agregados/legados (usados por dashboard e compatibilidade)
+    -- Campos financeiros
     valor NUMERIC(12,2),
     boleto_url TEXT,
     pagamento_status VARCHAR(50) DEFAULT 'PENDING',
     valor_pago NUMERIC(12,2) DEFAULT 0,
     data_pagamento DATE,
-    asaas_payment_id VARCHAR(255), -- legado/compatibilidade
+    asaas_payment_id VARCHAR(255),
 
     -- Frequência de pagamento (apenas WEEKLY ou MONTHLY)
     frequencia_pagamento VARCHAR(20) NOT NULL,
@@ -106,7 +105,7 @@ CREATE TABLE IF NOT EXISTS locacoes (
 -- ====
 CREATE TABLE IF NOT EXISTS boletos (
     id SERIAL PRIMARY KEY,
-    locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE RESTRICT,
+    locacao_id INTEGER NOT NULL REFERENCES locacoes(id) ON DELETE CASCADE,
     asaas_payment_id VARCHAR(255) UNIQUE NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING',
     valor NUMERIC(12,2),
@@ -121,12 +120,12 @@ CREATE TABLE IF NOT EXISTS boletos (
     CONSTRAINT chk_boletos_valor CHECK (valor IS NULL OR valor >= 0),
     CONSTRAINT chk_boletos_valor_pago CHECK (valor_pago IS NULL OR valor_pago >= 0),
     CONSTRAINT chk_boletos_status CHECK (status IN (
-    'PENDING','RECEIVED','CONFIRMED','OVERDUE','CANCELED','REFUNDED','CHARGEBACK','RECEIVED_IN_CASH'
+        'PENDING','RECEIVED','CONFIRMED','OVERDUE','CANCELED','REFUNDED','CHARGEBACK','RECEIVED_IN_CASH'
     ))
 );
 
 -- ====
--- Imagens das Motos (CASCADE aqui faz sentido)
+-- Imagens das Motos
 -- ====
 CREATE TABLE IF NOT EXISTS moto_imagens (
     id SERIAL PRIMARY KEY,
@@ -136,7 +135,7 @@ CREATE TABLE IF NOT EXISTS moto_imagens (
 );
 
 -- ====
--- Serviços Extras nas Locações (CASCADE aqui faz sentido)
+-- Serviços Extras nas Locações
 -- ====
 CREATE TABLE IF NOT EXISTS servicos_locacao (
     id SERIAL PRIMARY KEY,
@@ -153,12 +152,11 @@ CREATE TABLE IF NOT EXISTS servicos_locacao (
 );
 
 -- ====
--- Índices para performance
+-- Índices
 -- ====
 CREATE INDEX IF NOT EXISTS idx_clientes_cpf ON clientes(cpf);
 CREATE INDEX IF NOT EXISTS idx_clientes_email ON clientes(email);
 CREATE INDEX IF NOT EXISTS idx_clientes_asaas ON clientes(asaas_id);
-CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes(ativo);
 
 CREATE INDEX IF NOT EXISTS idx_motos_placa ON motos(placa);
 CREATE INDEX IF NOT EXISTS idx_motos_modelo ON motos(modelo);
@@ -228,10 +226,3 @@ BEGIN
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
     END IF;
 END$$;
-
--- ====
--- Usuário admin inicial (senha: admin)
--- ====
-INSERT INTO usuarios (username, email, senha, is_admin) 
-VALUES ('admin', 'admin@motorental.com', 'pbkdf2:sha256:260000$uFyqYGrzqqDAd$57b4f6b08b017a8b9aa7c3b35e30712bc0a3cf309b8353adc2a64e14c00816e8', TRUE)
-ON CONFLICT (username) DO NOTHING;
