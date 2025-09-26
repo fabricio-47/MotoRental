@@ -14,15 +14,15 @@ locacoes_bp = Blueprint("locacoes", __name__, url_prefix="/locacoes")
 def listar_locacoes():
     import os, traceback, datetime as dt
     from werkzeug.utils import secure_filename
+    from psycopg2.extras import RealDictCursor
 
     breadcrumb = "inicio"
 
-    # GET: renderiza página normalmente
     if request.method == "GET":
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         try:
-            # Carrega dados para o template (ajuste conforme sua query atual)
+            # Locações ativas
             cur.execute("""
                 SELECT l.id, c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa,
                        l.data_inicio, l.data_fim, l.frequencia_pagamento, 
@@ -33,27 +33,28 @@ def listar_locacoes():
                 WHERE l.cancelado = FALSE
                 ORDER BY l.id DESC
             """)
-            locacoes = []
-            for row in cur.fetchall():
-                locacoes.append({
-                    "id": row[0],
-                    "cliente_nome": row[1],
-                    "moto_modelo": row[2],
-                    "moto_placa": row[3],
-                    "data_inicio": row[4],
-                    "data_fim": row[5],
-                    "frequencia_pagamento": row[6],
-                    "contrato_arquivo": row[7],
-                    "boleto_url": row[8],
-                    "pagamento_status": row[9],
-                    "valor_pago": row[10],
-                })
+            locacoes_rows = cur.fetchall()
+            locacoes = [{
+                "id": r["id"],
+                "cliente_nome": r["cliente_nome"],
+                "moto_modelo": r["moto_modelo"],
+                "moto_placa": r["moto_placa"],
+                "data_inicio": r["data_inicio"],
+                "data_fim": r["data_fim"],
+                "frequencia_pagamento": r["frequencia_pagamento"],
+                "contrato_arquivo": r["contrato_arquivo"],
+                "boleto_url": r["boleto_url"],
+                "pagamento_status": r["pagamento_status"],
+                "valor_pago": r["valor_pago"],
+            } for r in locacoes_rows]
 
+            # Clientes para o select
             cur.execute("SELECT id, nome FROM clientes ORDER BY nome ASC")
-            clientes = [{"id": r[0], "nome": r[1]} for r in cur.fetchall()]
+            clientes = [{"id": r["id"], "nome": r["nome"]} for r in cur.fetchall()]
 
+            # Motos disponíveis
             cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel = TRUE ORDER BY modelo ASC")
-            motos = [{"id": r[0], "modelo": r[1], "placa": r[2]} for r in cur.fetchall()]
+            motos = [{"id": r["id"], "modelo": r["modelo"], "placa": r["placa"]} for r in cur.fetchall()]
 
             return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
         finally:
@@ -62,11 +63,10 @@ def listar_locacoes():
 
     # POST: cria locação
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
         breadcrumb = "validando_campos"
-        # 1) Ler inputs
         cliente_id = request.form.get("cliente_id", type=int)
         moto_id = request.form.get("moto_id", type=int)
         data_inicio_str = (request.form.get("data_inicio") or "").strip()
@@ -74,7 +74,6 @@ def listar_locacoes():
         valor_str = (request.form.get("valor") or "").strip()
         observacoes = (request.form.get("observacoes") or "").strip() or None
 
-        # Frequência (aceita WEEKLY/MONTHLY ou SEMANAL/MENSAL)
         freq_in = (request.form.get("frequencia_pagamento") or "").strip().upper()
         mapping = {"SEMANAL": "WEEKLY", "MENSAL": "MONTHLY"}
         frequencia = mapping.get(freq_in, freq_in)
@@ -93,7 +92,6 @@ def listar_locacoes():
             return redirect(url_for("locacoes.listar_locacoes"))
 
         breadcrumb = "parse_datas_valor"
-        # 2) Parse datas/valor com flexibilidade
         def parse_date_flexible(s):
             if s is None or s == "":
                 return None
@@ -108,17 +106,16 @@ def listar_locacoes():
             flash("Data fim não pode ser anterior à data de início.", "warning")
             return redirect(url_for("locacoes.listar_locacoes"))
 
-        # valor em pt-BR: "1.234,56"
         valor = float(valor_str.replace(".", "").replace(",", "."))
 
         breadcrumb = "buscar_cliente_moto"
-        # 3) Buscar dados do cliente/moto
         cur.execute("SELECT asaas_id, nome FROM clientes WHERE id=%s", (cliente_id,))
         cliente = cur.fetchone()
         if not cliente:
             flash("Cliente não encontrado.", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
-        asaas_customer_id, cliente_nome = cliente[0], cliente[1]
+        asaas_customer_id = cliente["asaas_id"]
+        cliente_nome = cliente["nome"]
         if not asaas_customer_id:
             flash("Cliente sem integração Asaas (asaas_id ausente).", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
@@ -128,13 +125,12 @@ def listar_locacoes():
         if not moto:
             flash("Moto não encontrada.", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
-        modelo, placa, disponivel = moto[0], moto[1], moto[2]
+        modelo, placa, disponivel = moto["modelo"], moto["placa"], moto["disponivel"]
         if not disponivel:
             flash("Moto indisponível para locação.", "warning")
             return redirect(url_for("locacoes.listar_locacoes"))
 
         breadcrumb = "checar_config_asaas"
-        # 4) Criar assinatura no Asaas
         if not getattr(Config, "ASAAS_API_KEY", None) or not getattr(Config, "ASAAS_BASE_URL", None):
             flash("Configuração do Asaas ausente. Verifique ASAAS_API_KEY/ASAAS_BASE_URL.", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
@@ -181,7 +177,6 @@ def listar_locacoes():
             return redirect(url_for("locacoes.listar_locacoes"))
 
         breadcrumb = "upload_contrato"
-        # 5) Upload do contrato (PDF) - opcional
         contrato_arquivo = None
         arquivo = request.files.get("contrato_pdf")
         if arquivo and arquivo.filename:
@@ -193,7 +188,6 @@ def listar_locacoes():
             contrato_arquivo = nome_seguro
 
         breadcrumb = "insert_locacao"
-        # 6) Salvar locação no banco
         cur.execute("""
             INSERT INTO locacoes (
                 cliente_id, moto_id, data_inicio, data_fim,
@@ -207,7 +201,6 @@ def listar_locacoes():
         ))
 
         breadcrumb = "update_moto_disponivel"
-        # 7) Marcar moto como indisponível
         cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
 
         conn.commit()
@@ -230,37 +223,12 @@ def listar_locacoes():
         conn.rollback()
         print("ERRO inesperado em", breadcrumb, "=>", e)
         traceback.print_exc()
-        # usa repr(e) para evitar aparecer "0"
         flash(f"Erro inesperado ao criar locação ({breadcrumb}): {repr(e)}", "danger")
     finally:
         cur.close()
         conn.close()
 
     return redirect(url_for("locacoes.listar_locacoes"))
-
-    # GET
-    cur.execute("""
-        SELECT l.id, l.data_inicio, l.data_fim, l.valor, l.frequencia_pagamento,
-               l.pagamento_status, l.valor_pago, l.asaas_subscription_id, l.boleto_url,
-               c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa
-        FROM locacoes l
-        JOIN clientes c ON l.cliente_id = c.id
-        JOIN motos m ON l.moto_id = m.id
-        WHERE l.cancelado = FALSE
-        ORDER BY l.data_inicio DESC
-    """)
-    locacoes = cur.fetchall()
-
-    cur.execute("SELECT id, nome FROM clientes ORDER BY nome")
-    clientes = cur.fetchall()
-
-    cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel = TRUE ORDER BY modelo")
-    motos = cur.fetchall()
-
-    cur.close()
-    conn.close()
-    return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
-
 # ==== Editar locação + listar boletos ====
 @locacoes_bp.route("/<int:id>/editar", methods=["GET", "POST"])
 @login_required
