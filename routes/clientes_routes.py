@@ -9,7 +9,7 @@ clientes_bp = Blueprint("clientes", __name__, url_prefix="/clientes")
 
 @clientes_bp.route("/", methods=["GET", "POST"])
 @login_required
-def listar_e_criar_clientes():
+def listar_clientes():
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
         email = request.form.get("email", "").strip()
