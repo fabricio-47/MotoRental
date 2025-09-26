@@ -12,142 +12,231 @@ locacoes_bp = Blueprint("locacoes", __name__, url_prefix="/locacoes")
 @locacoes_bp.route("/", methods=["GET", "POST"])
 @login_required
 def listar_locacoes():
+    import os, traceback, datetime as dt
+    from werkzeug.utils import secure_filename
+
+    breadcrumb = "inicio"
+
+    # GET: renderiza página normalmente
+    if request.method == "GET":
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            # Carrega dados para o template (ajuste conforme sua query atual)
+            cur.execute("""
+                SELECT l.id, c.nome AS cliente_nome, m.modelo AS moto_modelo, m.placa AS moto_placa,
+                       l.data_inicio, l.data_fim, l.frequencia_pagamento, 
+                       l.contrato_arquivo, l.boleto_url, l.pagamento_status, l.valor_pago
+                FROM locacoes l
+                JOIN clientes c ON c.id = l.cliente_id
+                JOIN motos m ON m.id = l.moto_id
+                WHERE l.cancelado = FALSE
+                ORDER BY l.id DESC
+            """)
+            locacoes = []
+            for row in cur.fetchall():
+                locacoes.append({
+                    "id": row[0],
+                    "cliente_nome": row[1],
+                    "moto_modelo": row[2],
+                    "moto_placa": row[3],
+                    "data_inicio": row[4],
+                    "data_fim": row[5],
+                    "frequencia_pagamento": row[6],
+                    "contrato_arquivo": row[7],
+                    "boleto_url": row[8],
+                    "pagamento_status": row[9],
+                    "valor_pago": row[10],
+                })
+
+            cur.execute("SELECT id, nome FROM clientes ORDER BY nome ASC")
+            clientes = [{"id": r[0], "nome": r[1]} for r in cur.fetchall()]
+
+            cur.execute("SELECT id, modelo, placa FROM motos WHERE disponivel = TRUE ORDER BY modelo ASC")
+            motos = [{"id": r[0], "modelo": r[1], "placa": r[2]} for r in cur.fetchall()]
+
+            return render_template("locacoes.html", locacoes=locacoes, clientes=clientes, motos=motos)
+        finally:
+            cur.close()
+            conn.close()
+
+    # POST: cria locação
     conn = get_db_connection()
     cur = conn.cursor()
 
-    if request.method == "POST":
+    try:
+        breadcrumb = "validando_campos"
+        # 1) Ler inputs
+        cliente_id = request.form.get("cliente_id", type=int)
+        moto_id = request.form.get("moto_id", type=int)
+        data_inicio_str = (request.form.get("data_inicio") or "").strip()
+        data_fim_str = (request.form.get("data_fim") or "").strip() or None
+        valor_str = (request.form.get("valor") or "").strip()
+        observacoes = (request.form.get("observacoes") or "").strip() or None
+
+        # Frequência (aceita WEEKLY/MONTHLY ou SEMANAL/MENSAL)
+        freq_in = (request.form.get("frequencia_pagamento") or "").strip().upper()
+        mapping = {"SEMANAL": "WEEKLY", "MENSAL": "MONTHLY"}
+        frequencia = mapping.get(freq_in, freq_in)
+
+        if frequencia not in ("WEEKLY", "MONTHLY"):
+            flash("Frequência inválida. Selecione semanal ou mensal.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        if not cliente_id or not moto_id:
+            flash("Cliente e moto são obrigatórios.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        if not data_inicio_str:
+            flash("Data de início é obrigatória.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        if not valor_str:
+            flash("Valor é obrigatório.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        breadcrumb = "parse_datas_valor"
+        # 2) Parse datas/valor com flexibilidade
+        def parse_date_flexible(s):
+            if s is None or s == "":
+                return None
+            s = s.strip()
+            if "/" in s:  # dd/mm/aaaa
+                return dt.datetime.strptime(s, "%d/%m/%Y").date()
+            return dt.datetime.strptime(s, "%Y-%m-%d").date()  # yyyy-mm-dd
+
+        data_inicio = parse_date_flexible(data_inicio_str)
+        data_fim = parse_date_flexible(data_fim_str) if data_fim_str else None
+        if data_fim and data_fim < data_inicio:
+            flash("Data fim não pode ser anterior à data de início.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        # valor em pt-BR: "1.234,56"
+        valor = float(valor_str.replace(".", "").replace(",", "."))
+
+        breadcrumb = "buscar_cliente_moto"
+        # 3) Buscar dados do cliente/moto
+        cur.execute("SELECT asaas_id, nome FROM clientes WHERE id=%s", (cliente_id,))
+        cliente = cur.fetchone()
+        if not cliente:
+            flash("Cliente não encontrado.", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        asaas_customer_id, cliente_nome = cliente[0], cliente[1]
+        if not asaas_customer_id:
+            flash("Cliente sem integração Asaas (asaas_id ausente).", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        cur.execute("SELECT modelo, placa, disponivel FROM motos WHERE id=%s", (moto_id,))
+        moto = cur.fetchone()
+        if not moto:
+            flash("Moto não encontrada.", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+        modelo, placa, disponivel = moto[0], moto[1], moto[2]
+        if not disponivel:
+            flash("Moto indisponível para locação.", "warning")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        breadcrumb = "checar_config_asaas"
+        # 4) Criar assinatura no Asaas
+        if not getattr(Config, "ASAAS_API_KEY", None) or not getattr(Config, "ASAAS_BASE_URL", None):
+            flash("Configuração do Asaas ausente. Verifique ASAAS_API_KEY/ASAAS_BASE_URL.", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        subscription_data = {
+            "customer": asaas_customer_id,
+            "billingType": "BOLETO",
+            "value": valor,
+            "cycle": frequencia,  # 'WEEKLY' ou 'MONTHLY'
+            "description": f"Locação moto {modelo} - {placa} ({cliente_nome})",
+            "nextDueDate": data_inicio.strftime("%Y-%m-%d")
+        }
+        if data_fim:
+            subscription_data["endDate"] = data_fim.strftime("%Y-%m-%d")
+
+        breadcrumb = "chamar_asaas"
         try:
-            # 1) Ler e validar inputs do form
-            cliente_id = request.form.get("cliente_id", type=int)
-            moto_id = request.form.get("moto_id", type=int)
-            data_inicio_str = (request.form.get("data_inicio") or "").strip()
-            data_fim_str = (request.form.get("data_fim") or "").strip() or None
-            valor_str = (request.form.get("valor") or "").strip()
-            observacoes = (request.form.get("observacoes") or "").strip() or None
-
-            # Frequência (aceita WEEKLY/MONTHLY direto ou SEMANAL/MENSAL e converte)
-            freq = (request.form.get("frequencia_pagamento") or "").strip().upper()
-            mapping = {"SEMANAL": "WEEKLY", "MENSAL": "MONTHLY"}
-            frequencia = mapping.get(freq, freq)
-
-            # Validações básicas
-            if frequencia not in ("WEEKLY", "MONTHLY"):
-                flash("Frequência inválida. Selecione semanal ou mensal.", "warning")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            if not cliente_id or not moto_id:
-                flash("Cliente e moto são obrigatórios.", "warning")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            if not data_inicio_str:
-                flash("Data de início é obrigatória.", "warning")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            if not valor_str:
-                flash("Valor é obrigatório.", "warning")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            # 2) Parse de datas e valor
-            def parse_date_flexible(s):
-                if "/" in s:  # dd/mm/aaaa
-                    return dt.datetime.strptime(s, "%d/%m/%Y").strftime("%Y-%m-%d")
-                else:  # já em YYYY-MM-DD
-                    return s
-
-            data_inicio = parse_date_flexible(data_inicio_str)
-            data_fim = parse_date_flexible(data_fim_str) if data_fim_str else None
-
-            valor = float(valor_str.replace(".", "").replace(",", "."))
-
-            # 3) Buscar dados do cliente/moto
-            cur.execute("SELECT asaas_id, nome FROM clientes WHERE id=%s", (cliente_id,))
-            cliente = cur.fetchone()
-            if not cliente:
-                flash("Cliente não encontrado.", "danger")
-                return redirect(url_for("locacoes.listar_locacoes"))
-            if not cliente[0]:
-                flash("Cliente sem integração Asaas (asaas_id ausente).", "danger")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            cur.execute("SELECT modelo, placa, disponivel FROM motos WHERE id=%s", (moto_id,))
-            moto = cur.fetchone()
-            if not moto:
-                flash("Moto não encontrada.", "danger")
-                return redirect(url_for("locacoes.listar_locacoes"))
-            if not moto[2]:  # disponivel
-                flash("Moto indisponível para locação.", "warning")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            # 4) Criar assinatura no Asaas
-            subscription_data = {
-                "customer": cliente[0],
-                "billingType": "BOLETO",
-                "value": valor,
-                "cycle": frequencia,
-                "description": f"Locação moto {moto[0]} - {moto[1]} ({cliente[1]})",
-                "nextDueDate": data_inicio
-            }
-            if data_fim:
-                subscription_data["endDate"] = data_fim
-
             resp = requests.post(
                 f"{Config.ASAAS_BASE_URL}/subscriptions",
                 headers={"access_token": Config.ASAAS_API_KEY},
                 json=subscription_data,
                 timeout=30
             )
-            if resp.status_code not in (200, 201):
-                flash(f"Erro ao criar assinatura no Asaas: {resp.text}", "danger")
-                return redirect(url_for("locacoes.listar_locacoes"))
-
-            asaas_subscription_id = resp.json().get("id")
-
-            # 5) Upload do contrato (PDF)
-            contrato_arquivo = None
-            arquivo = request.files.get("contrato_pdf")
-            if arquivo and arquivo.filename:
-                from werkzeug.utils import secure_filename
-                import os
-                nome_seguro = secure_filename(arquivo.filename)
-                pasta_contratos = os.path.join(os.getcwd(), "uploads", "contratos")
-                os.makedirs(pasta_contratos, exist_ok=True)
-                caminho_destino = os.path.join(pasta_contratos, nome_seguro)
-                arquivo.save(caminho_destino)
-                contrato_arquivo = nome_seguro
-
-            # 6) Salvar locação no banco
-            cur.execute("""
-                INSERT INTO locacoes (
-                    cliente_id, moto_id, data_inicio, data_fim,
-                    valor, frequencia_pagamento, observacoes, 
-                    asaas_subscription_id, contrato_arquivo
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (cliente_id, moto_id, data_inicio, data_fim,
-                  valor, frequencia, observacoes, asaas_subscription_id, contrato_arquivo))
-
-            # 7) Marcar moto como indisponível
-            cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
-            conn.commit()
-            flash("Locação criada, contrato salvo e assinatura recorrente configurada no Asaas!", "success")
+        except requests.RequestException as rexc:
+            print("ERRO REQUEST AO ASAAS:", rexc)
+            traceback.print_exc()
+            flash(f"Falha de conexão com Asaas: {str(rexc)}", "danger")
             return redirect(url_for("locacoes.listar_locacoes"))
 
-        except psycopg2.Error as e:
-            conn.rollback()
-            detalhe = getattr(e.diag, "message_detail", "")
-            if detalhe:
-                flash(f"Erro ao criar locação: {detalhe}", "danger")
-            else:
-                flash(f"Erro ao criar locação: {e.pgerror or str(e)}", "danger")
-        except ValueError as e:
-            conn.rollback()
-            flash(f"Data/valor inválido: {str(e)}", "danger")
-        except Exception as e:
-            conn.rollback()
-            flash(f"Erro inesperado ao criar locação: {str(e)}", "danger")
-        finally:
-            cur.close()
-            conn.close()
+        if resp.status_code not in (200, 201):
+            body = ""
+            try:
+                body = resp.text
+            except Exception:
+                body = "<sem corpo>"
+            print("ERRO ASAAS STATUS/RESP:", resp.status_code, body)
+            flash(f"Erro do Asaas ({resp.status_code}): {body}", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        asaas_subscription_id = resp.json().get("id")
+        if not asaas_subscription_id:
+            print("ERRO: Resposta do Asaas sem id:", resp.json())
+            flash("Resposta do Asaas não retornou id da assinatura.", "danger")
+            return redirect(url_for("locacoes.listar_locacoes"))
+
+        breadcrumb = "upload_contrato"
+        # 5) Upload do contrato (PDF) - opcional
+        contrato_arquivo = None
+        arquivo = request.files.get("contrato_pdf")
+        if arquivo and arquivo.filename:
+            nome_seguro = secure_filename(arquivo.filename)
+            pasta_contratos = os.path.join(os.getcwd(), "uploads", "contratos")
+            os.makedirs(pasta_contratos, exist_ok=True)
+            caminho_destino = os.path.join(pasta_contratos, nome_seguro)
+            arquivo.save(caminho_destino)
+            contrato_arquivo = nome_seguro
+
+        breadcrumb = "insert_locacao"
+        # 6) Salvar locação no banco
+        cur.execute("""
+            INSERT INTO locacoes (
+                cliente_id, moto_id, data_inicio, data_fim,
+                valor, frequencia_pagamento, observacoes,
+                asaas_subscription_id, contrato_arquivo
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            cliente_id, moto_id, data_inicio, data_fim,
+            valor, frequencia, observacoes,
+            asaas_subscription_id, contrato_arquivo
+        ))
+
+        breadcrumb = "update_moto_disponivel"
+        # 7) Marcar moto como indisponível
+        cur.execute("UPDATE motos SET disponivel=FALSE WHERE id=%s", (moto_id,))
+
+        conn.commit()
+        flash("Locação criada, contrato salvo e assinatura recorrente configurada no Asaas!", "success")
         return redirect(url_for("locacoes.listar_locacoes"))
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        print("ERRO psycopg2 em", breadcrumb, "=>", e)
+        traceback.print_exc()
+        detalhe = getattr(e.diag, "message_detail", "")
+        msg = detalhe or (e.pgerror or str(e))
+        flash(f"Erro ao criar locação ({breadcrumb}): {msg}", "danger")
+    except ValueError as e:
+        conn.rollback()
+        print("ERRO ValueError em", breadcrumb, "=>", e)
+        traceback.print_exc()
+        flash(f"Data/valor inválido ({breadcrumb}): {str(e)}", "danger")
+    except Exception as e:
+        conn.rollback()
+        print("ERRO inesperado em", breadcrumb, "=>", e)
+        traceback.print_exc()
+        # usa repr(e) para evitar aparecer "0"
+        flash(f"Erro inesperado ao criar locação ({breadcrumb}): {repr(e)}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("locacoes.listar_locacoes"))
 
     # GET
     cur.execute("""
