@@ -369,7 +369,8 @@ def cancelar_locacao(id):
 
     except Exception as e:
         conn.rollback()
-        flash(f"Erro inesperado ao cancelar locação: {str(e)}", "danger")
+        print(f"Erro inesperado ao cancelar locação: {repr(e)} (tipo: {type(e)})")
+        flash(f"Erro inesperado ao cancelar locação: {repr(e)}", "danger")
 
     finally:
         cur.close()
