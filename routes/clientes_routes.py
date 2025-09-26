@@ -21,7 +21,7 @@ def listar_clientes():
 
         if not nome or not email or not telefone:
             flash("Nome, email e telefone são obrigatórios.", "warning")
-            return redirect(url_for("clientes.listar_e_criar_clientes"))
+            return redirect(url_for("clientes.listar_clientes"))
 
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -33,7 +33,7 @@ def listar_clientes():
 
             if cliente_existente:
                 flash("Cliente já cadastrado localmente.", "info")
-                return redirect(url_for("clientes.listar_e_criar_clientes"))
+                return redirect(url_for("clientes.listar_clientes"))
 
             # Busca cliente no Asaas pelo CPF (document) ou email
             headers = {"access_token": Config.ASAAS_API_KEY}
@@ -46,7 +46,7 @@ def listar_clientes():
             resp = requests.get(f"{Config.ASAAS_BASE_URL}/customers", headers=headers, params=params, timeout=30)
             if resp.status_code != 200:
                 flash(f"Erro ao consultar Asaas: {resp.status_code}", "danger")
-                return redirect(url_for("clientes.listar_e_criar_clientes"))
+                return redirect(url_for("clientes.listar_clientes"))
 
             data = resp.json()
             asaas_id = None
@@ -69,7 +69,7 @@ def listar_clientes():
                 resp_create = requests.post(f"{Config.ASAAS_BASE_URL}/customers", headers=headers, json=cliente_payload, timeout=30)
                 if resp_create.status_code not in (200, 201):
                     flash(f"Erro ao criar cliente no Asaas: {resp_create.status_code}", "danger")
-                    return redirect(url_for("clientes.listar_e_criar_clientes"))
+                    return redirect(url_for("clientes.listar_clientes"))
                 asaas_id = resp_create.json().get("id")
 
             # Salva cliente local com o asaas_id
@@ -80,13 +80,13 @@ def listar_clientes():
             conn.commit()
 
             flash("Cliente cadastrado com sucesso e integrado ao Asaas.", "success")
-            return redirect(url_for("clientes.listar_e_criar_clientes"))
+            return redirect(url_for("clientes.listar_clientes"))
 
         except Exception as e:
             conn.rollback()
             print("Erro ao criar cliente:", e)
             flash("Erro inesperado ao criar cliente.", "danger")
-            return redirect(url_for("clientes.listar_e_criar_clientes"))
+            return redirect(url_for("clientes.listar_clientes"))
         finally:
             cur.close()
             conn.close()
